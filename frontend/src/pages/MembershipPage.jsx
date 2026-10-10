@@ -28,18 +28,11 @@ import { Badge } from '../components/Badge';
 export const MembershipPage = () => {
   const { user, isMember, refreshUser, switchTrack, membershipRole } = useAuth();
   const [selectedTier, setSelectedTier] = useState('annual'); // 'annual' or 'semester'
-  const [selectedRole, setSelectedRole] = useState(user?.membership_role || 'participant'); // 'participant' or 'volunteer'
   const [loading, setLoading] = useState(false);
   const [switchingTrack, setSwitchingTrack] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [paymentDetails, setPaymentDetails] = useState(null);
-
-  useEffect(() => {
-    if (user?.membership_role) {
-      setSelectedRole(user.membership_role);
-    }
-  }, [user?.membership_role]);
 
   // Dynamically load Razorpay SDK script
   const loadRazorpayScript = () => {
@@ -57,11 +50,13 @@ export const MembershipPage = () => {
     });
   };
 
-  const handleRazorpayPurchase = async (tierToBuy = selectedTier, roleToBuy = selectedRole) => {
+  const handleRazorpayPurchase = async (tierToBuy = selectedTier) => {
     setLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
     setPaymentDetails(null);
+
+    const roleToBuy = user?.membership_role || 'participant';
 
     try {
       // 1. Ensure Razorpay script is loaded
@@ -76,7 +71,6 @@ export const MembershipPage = () => {
         member_role: roleToBuy
       });
 
-      const trackTitle = roleToBuy === 'volunteer' ? 'Volunteer Crew' : 'Participant';
       const durationTitle = tierToBuy === 'annual' ? 'Annual Pass (12 Months)' : 'Semester Pass (6 Months)';
 
       // 3. Open Razorpay Checkout modal
@@ -85,7 +79,7 @@ export const MembershipPage = () => {
         amount: orderData.amount_paise,
         currency: orderData.currency || 'INR',
         name: 'Skyline Campus Organization',
-        description: `${durationTitle} - ${trackTitle} Membership`,
+        description: `${durationTitle} - Chapter Membership`,
         image: '/logo.png',
         order_id: orderData.order_id,
         prefill: {
@@ -117,19 +111,12 @@ export const MembershipPage = () => {
               paymentId: response.razorpay_payment_id,
               orderId: response.razorpay_order_id,
               tier: tierToBuy,
-              role: roleToBuy,
               amount: tierToBuy === 'annual' ? 500 : 300
             });
 
-            if (roleToBuy === 'volunteer') {
-              setSuccessMsg(
-                `Payment verified! Your ${tierToBuy === 'annual' ? 'Annual' : 'Semester'} Volunteer Crew membership is active. "My Volunteer Tasks" and "Manage QR / Scanner" are now unlocked in your sidebar!`
-              );
-            } else {
-              setSuccessMsg(
-                `Payment verified! Your ${tierToBuy === 'annual' ? 'Annual' : 'Semester'} Participant membership is active. Enjoy 50% discount on all campus events and hackathons!`
-              );
-            }
+            setSuccessMsg(
+              `Payment verified! Your ${tierToBuy === 'annual' ? 'Annual Pass' : 'Semester Pass'} membership is active. Enjoy exclusive event discounts and hackathon access!`
+            );
             await refreshUser();
           } catch (verifyErr) {
             console.error('Payment verification error:', verifyErr);
@@ -290,10 +277,8 @@ export const MembershipPage = () => {
 
             <div className="text-xs text-white/70">
               {isMember
-                ? isCurrentVolunteer
-                  ? 'Volunteer Tasks & Gate QR Scanner unlocked.'
-                  : '50% Event discounts & hackathon passes unlocked.'
-                : 'Choose a role and duration tier below to activate your credential.'}
+                ? 'Your membership is active. Enjoy exclusive event discounts and chapter perks.'
+                : 'Choose a membership pass tier below to activate your credential.'}
             </div>
 
             {/* Quick Switch Track for Existing Members */}
@@ -315,7 +300,7 @@ export const MembershipPage = () => {
             )}
 
             <button
-              onClick={() => handleRazorpayPurchase(selectedTier, selectedRole)}
+              onClick={() => handleRazorpayPurchase(selectedTier)}
               disabled={loading}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer"
             >
@@ -329,8 +314,8 @@ export const MembershipPage = () => {
                   <Zap className="w-3.5 h-3.5 text-amber-300" />
                   <span>
                     {isMember
-                      ? `Renew ${selectedTier === 'annual' ? 'Annual (₹500)' : 'Semester (₹300)'} as ${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'}`
-                      : `Pay ${selectedTier === 'annual' ? '₹500' : '₹300'} via Razorpay (${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'})`}
+                      ? `Renew ${selectedTier === 'annual' ? 'Annual Pass (₹500)' : 'Semester Pass (₹300)'}`
+                      : `Pay ${selectedTier === 'annual' ? '₹500' : '₹300'} via Razorpay`}
                   </span>
                 </>
               )}
@@ -339,173 +324,17 @@ export const MembershipPage = () => {
         </div>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Step 1: Choose Role Option: Participant vs Volunteer               */}
+        {/* Choose Duration Tier (Annual vs Semester)                           */}
         {/* ------------------------------------------------------------------ */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-extrabold text-[#171A2B] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#625BF6] text-white text-[11px] flex items-center justify-center font-bold">1</span>
-                <span>Choose Your Chapter Role Track</span>
+                <span className="w-5 h-5 rounded-full bg-[#625BF6] text-white text-[11px] flex items-center justify-center font-bold">★</span>
+                <span>Select Membership Pass Tier</span>
               </h2>
               <p className="text-xs text-[#687086] mt-0.5">
-                Select whether you want to participate in events or actively volunteer to manage them.
-              </p>
-            </div>
-            <span className="text-xs text-[#687086] hidden sm:inline">Select one option</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Option A: Participant Track */}
-            <div
-              onClick={() => setSelectedRole('participant')}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-4 ${
-                selectedRole === 'participant'
-                  ? 'bg-white border-[#625BF6] shadow-[0_4px_16px_rgba(98,91,246,0.12)] ring-2 ring-[#625BF6]/20'
-                  : 'bg-white border-[#E7E9F1] hover:border-[#D4D1FD] shadow-2xs'
-              }`}
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                        selectedRole === 'participant'
-                          ? 'bg-[#625BF6] text-white shadow-sm'
-                          : 'bg-[#F3F4F8] text-[#687086]'
-                      }`}
-                    >
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-extrabold text-[#171A2B] text-base">As a Participant</h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#16856B]/10 text-[#16856B]">
-                          Competitor & Attendee
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#687086]">Hackathons, workshops & chapter networking</p>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                      selectedRole === 'participant'
-                        ? 'border-[#625BF6] bg-[#625BF6] text-white'
-                        : 'border-[#A6ACBE]'
-                    }`}
-                  >
-                    {selectedRole === 'participant' && <Check className="w-3.5 h-3.5" />}
-                  </div>
-                </div>
-
-                <ul className="text-xs text-[#687086] space-y-2 pt-2 border-t border-[#E7E9F1]">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
-                    <span>50% flat discount on all hackathon & event passes</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
-                    <span>Direct hackathon project submission & team participation</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
-                    <span>Official verified participation credentials & badges</span>
-                  </li>
-                  <li className="flex items-center gap-2 text-[#A6ACBE]">
-                    <span className="w-4 text-center font-bold">✕</span>
-                    <span>No volunteer checklists or gate scanning obligations</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-2 text-[11px] font-semibold text-[#625BF6] flex items-center gap-1">
-                <span>{selectedRole === 'participant' ? '✓ Selected as Participant' : 'Click to select Participant'}</span>
-              </div>
-            </div>
-
-            {/* Option B: Volunteer Track */}
-            <div
-              onClick={() => setSelectedRole('volunteer')}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-4 ${
-                selectedRole === 'volunteer'
-                  ? 'bg-white border-[#625BF6] shadow-[0_4px_16px_rgba(98,91,246,0.12)] ring-2 ring-[#625BF6]/20'
-                  : 'bg-white border-[#E7E9F1] hover:border-[#D4D1FD] shadow-2xs'
-              }`}
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                        selectedRole === 'volunteer'
-                          ? 'bg-[#625BF6] text-white shadow-sm'
-                          : 'bg-[#F3F4F8] text-[#687086]'
-                      }`}
-                    >
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-extrabold text-[#171A2B] text-base">As a Volunteer</h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
-                          Operations & Logistics
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#687086]">Event organizing crew & check-in gates</p>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                      selectedRole === 'volunteer'
-                        ? 'border-[#625BF6] bg-[#625BF6] text-white'
-                        : 'border-[#A6ACBE]'
-                    }`}
-                  >
-                    {selectedRole === 'volunteer' && <Check className="w-3.5 h-3.5" />}
-                  </div>
-                </div>
-
-                <ul className="text-xs text-[#687086] space-y-2 pt-2 border-t border-[#E7E9F1]">
-                  <li className="flex items-center gap-2 font-semibold text-[#171A2B]">
-                    <CheckSquare className="w-4 h-4 text-[#625BF6] shrink-0" />
-                    <span>Unlocks "My Volunteer Tasks" sprint board</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-semibold text-[#171A2B]">
-                    <QrCode className="w-4 h-4 text-[#625BF6] shrink-0" />
-                    <span>Unlocks "Manage QR / Gate Scanner" to verify attendees</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
-                    <span>Official leadership service certificate & faculty recommendation</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
-                    <span>Includes all 50% ticket discounts & participant benefits</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-2 text-[11px] font-semibold text-[#625BF6] flex items-center gap-1">
-                <span>{selectedRole === 'volunteer' ? '✓ Selected as Volunteer' : 'Click to select Volunteer'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Step 2: Choose Duration Tier (Annual vs Semester)                  */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-extrabold text-[#171A2B] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#625BF6] text-white text-[11px] flex items-center justify-center font-bold">2</span>
-                <span>Select Pass Duration Tier</span>
-              </h2>
-              <p className="text-xs text-[#687086] mt-0.5">
-                Coverage period for your selected {selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'} track.
+                Choose between an Annual Pass (12 Months) or a Semester Pass (6 Months).
               </p>
             </div>
             <span className="text-xs text-[#687086] hidden sm:inline">Click a tier to choose</span>
@@ -570,7 +399,7 @@ export const MembershipPage = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedTier('annual');
-                  handleRazorpayPurchase('annual', selectedRole);
+                  handleRazorpayPurchase('annual');
                 }}
                 disabled={loading}
                 className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -581,8 +410,8 @@ export const MembershipPage = () => {
               >
                 <span>
                   {isMember
-                    ? `Renew Annual (₹500) as ${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'}`
-                    : `Pay ₹500 via Razorpay (${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'})`}
+                    ? 'Renew Annual Pass (₹500)'
+                    : 'Pay ₹500 via Razorpay'}
                 </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -646,7 +475,7 @@ export const MembershipPage = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedTier('semester');
-                  handleRazorpayPurchase('semester', selectedRole);
+                  handleRazorpayPurchase('semester');
                 }}
                 disabled={loading}
                 className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -657,8 +486,8 @@ export const MembershipPage = () => {
               >
                 <span>
                   {isMember
-                    ? `Renew Semester (₹300) as ${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'}`
-                    : `Pay ₹300 via Razorpay (${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'})`}
+                    ? 'Renew Semester Pass (₹300)'
+                    : 'Pay ₹300 via Razorpay'}
                 </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>

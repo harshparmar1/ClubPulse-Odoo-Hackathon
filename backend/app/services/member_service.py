@@ -43,6 +43,11 @@ class MemberService:
     def create_member(data: MemberCreate, current_user: Optional[dict] = None) -> MemberResponse:
         db = get_database()
         existing = db["members"].find_one({"email": data.email.lower()})
+        if existing and existing.get("status") == "active":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Member with email {data.email} already exists."
+            )
         
         now = datetime.utcnow()
         now_iso = now.isoformat()

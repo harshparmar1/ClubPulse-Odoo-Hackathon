@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, MapPin, Users, Search, Tag, Sparkles, Ticket } from 'lucide-react';
+import { Calendar, MapPin, Users, Search, Tag, Sparkles, Ticket, ArrowRight } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Badge } from '../components/Badge';
 import { EventBookingModal } from '../components/EventBookingModal';
 import { EmptyState } from '../components/EmptyState';
 
 export const EventsPage = () => {
-  const { isMember } = useAuth();
+  const { isMember, role } = useAuth();
+  const isStaff = ['organizer', 'admin', 'treasurer'].includes(role);
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
@@ -33,6 +34,10 @@ export const EventsPage = () => {
   const tagsList = ['All', 'Hackathon', 'Workshop', 'AI', 'Coding', 'Gala', 'Prizes'];
 
   const filteredEvents = events.filter((e) => {
+    // If student has not bought membership, hide free membership events
+    if (!isMember && !isStaff && e.member_price_paise === 0) {
+      return false;
+    }
     const matchesSearch =
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -74,6 +79,25 @@ export const EventsPage = () => {
             />
           </div>
         </div>
+
+        {/* Non-member benefit banner */}
+        {!isMember && !isStaff && (
+          <div className="p-3.5 bg-gradient-to-r from-[#625BF6]/10 to-indigo-50 border border-[#625BF6]/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#171A2B] shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-[#625BF6] shrink-0" />
+              <span>
+                <strong>Chapter Members</strong> get free access to exclusive member workshops and 50% discount on hackathons.
+              </span>
+            </div>
+            <a
+              href="/membership"
+              className="inline-flex items-center gap-1 font-bold text-[#625BF6] hover:text-[#5048E5] transition-colors shrink-0"
+            >
+              <span>Unlock Member Benefits</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        )}
 
         {/* Filter Tags */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">

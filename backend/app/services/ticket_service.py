@@ -48,6 +48,20 @@ class TicketService:
         ticket_id = f"tkt_{uuid.uuid4().hex[:10]}"
         qr_token = f"CP-TKT-{data.event_id[:5]}-{uuid.uuid4().hex[:8].upper()}"
         now_iso = datetime.utcnow().isoformat()
+        role_track = (data.role_track or "participant").lower()
+        if role_track not in ["participant", "volunteer"]:
+            role_track = "participant"
+
+        # If user is active member and registers as volunteer, update membership_role
+        if is_member and role_track == "volunteer":
+            db["users"].update_one(
+                {"id": current_user["id"]},
+                {"$set": {"membership_role": "volunteer"}}
+            )
+            db["members"].update_one(
+                {"$or": [{"user_id": current_user["id"]}, {"email": current_user["email"].lower()}]},
+                {"$set": {"membership_role": "volunteer"}}
+            )
 
         ticket_doc = {
             "id": ticket_id,
@@ -61,6 +75,7 @@ class TicketService:
             "quantity": data.quantity,
             "total_amount_paise": total_amount,
             "is_member_discount_applied": is_member,
+            "role_track": role_track,
             "qr_token": qr_token,
             "checked_in": False,
             "checked_in_at": None,
@@ -75,7 +90,7 @@ class TicketService:
                 "amount_paise": total_amount,
                 "transaction_type": "income",
                 "category": "ticket_sale",
-                "description": f"Ticket booking for {event['title']} ({data.quantity} tickets by {current_user['full_name']})",
+                "description": f"Ticket booking ({role_track.capitalize()}) for {event['title']} ({data.quantity} tickets by {current_user['full_name']})",
                 "status": "completed",
                 "reference_id": ticket_id,
                 "event_id": event["id"],
@@ -103,6 +118,7 @@ class TicketService:
                 quantity=doc["quantity"],
                 total_amount_paise=doc["total_amount_paise"],
                 is_member_discount_applied=doc.get("is_member_discount_applied", False),
+                role_track=doc.get("role_track", "participant"),
                 qr_token=doc["qr_token"],
                 checked_in=doc.get("checked_in", False),
                 checked_in_at=doc.get("checked_in_at"),

@@ -88,9 +88,18 @@ export const MyTicketsPage = () => {
                     </div>
                   </div>
 
-                  <Badge variant={tkt.checked_in ? 'active' : 'primary'}>
-                    {tkt.checked_in ? 'Checked In' : 'Valid Pass'}
-                  </Badge>
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                      tkt.role_track === 'volunteer'
+                        ? 'bg-[#625BF6]/10 text-[#625BF6] border-[#625BF6]/20'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {tkt.role_track === 'volunteer' ? '🤝 Volunteer' : '🎓 Participant'}
+                    </span>
+                    <Badge variant={tkt.checked_in ? 'active' : 'primary'}>
+                      {tkt.checked_in ? 'Checked In' : 'Valid Pass'}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* QR Code and token info */}
@@ -163,7 +172,10 @@ export const MyTicketsPage = () => {
                 <QRCodeSVG value={activeModalTicket.qr_token} size={200} level="H" />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
+                <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-indigo-50 text-indigo-700 border-indigo-200">
+                  {activeModalTicket.role_track === 'volunteer' ? '🤝 Volunteer Operations Pass' : '🎓 Participant Attendee Pass'}
+                </div>
                 <h3 className="font-bold text-base text-[#171A2B]">{activeModalTicket.event_title}</h3>
                 <p className="text-xs text-[#687086]">Attendee: {activeModalTicket.user_name}</p>
                 <div className="p-2 bg-[#F7F8FC] rounded-lg font-mono text-[11px] text-[#171A2B] border border-[#E7E9F1] select-all">
