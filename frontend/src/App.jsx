@@ -73,7 +73,7 @@ export default function App() {
           <Route
             path="/my-tasks"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']} allowVolunteer={true}>
                 <StudentTasksPage />
               </ProtectedRoute>
             }
@@ -123,7 +123,7 @@ export default function App() {
           <Route
             path="/organizer/scanner"
             element={
-              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']} allowVolunteer={true}>
                 <QRScannerPage />
               </ProtectedRoute>
             }

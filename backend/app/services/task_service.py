@@ -13,7 +13,11 @@ class TaskService:
         if event_id:
             query["event_id"] = event_id
         if assignee_id:
-            query["assignee_id"] = assignee_id
+            query["$or"] = [
+                {"assignee_id": assignee_id},
+                {"assignee_id": None},
+                {"assignee_id": ""}
+            ]
 
         cursor = db["tasks"].find(query).sort("due_date", 1)
         today_str = date.today().isoformat()

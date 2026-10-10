@@ -49,7 +49,7 @@ export const HandoverReportPage = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `clubpulse_handover_report_${Date.now()}.csv`;
+      a.download = `skyline_handover_report_${Date.now()}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -3,7 +3,7 @@ from typing import List
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "ClubPulse API"
+    PROJECT_NAME: str = "Skyline API"
     VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     
@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
+    # Razorpay Gateway
+    RAZORPAY_KEY_ID: str = "rzp_test_I1o9YOZinQtIYu"
+    RAZORPAY_KEY_SECRET: str = "qz2S1Gdg4idESeQaqMxH0JIc"
+
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://clubpulse.vercel.app"
 

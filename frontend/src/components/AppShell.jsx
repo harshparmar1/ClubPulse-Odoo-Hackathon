@@ -27,13 +27,14 @@ import {
   ChevronRight,
   Sparkles,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  ArrowLeft
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { NotificationDropdown } from './NotificationDropdown';
 
 export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
-  const { user, role, logout, login, isMember } = useAuth();
+  const { user, role, logout, login, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -61,6 +62,19 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
 
   const isOrganizer = ['organizer', 'admin'].includes(role);
   const isTreasurer = ['treasurer', 'admin'].includes(role);
+
+  const memberNavItems = [
+    { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
+    { to: '/membership', label: 'Membership Status', icon: CreditCard },
+    ...(canVolunteer
+      ? [
+          { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare },
+          { to: '/organizer/scanner', label: 'Manage QR / Scanner', icon: QrCode }
+        ]
+      : []),
+    { to: '/expenses', label: 'Reimbursements', icon: Receipt }
+  ];
 
   const navItemClass = (isActive) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -113,13 +127,13 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
           {/* Logo Brand Header */}
           <div className="flex items-center justify-between pb-5 mb-4 border-b border-[#23253E]">
             <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-[#625BF6] text-white flex items-center justify-center font-bold shadow-md shadow-[#625BF6]/30 shrink-0">
-                <Activity className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center font-bold shadow-md shadow-[#625BF6]/20 p-0.5 shrink-0 overflow-hidden">
+                <img src="/logo.png" alt="Skyline" className="w-full h-full object-contain" />
               </div>
               {!sidebarCollapsed && (
                 <div>
                   <div className="font-extrabold text-sm tracking-tight text-white leading-tight">
-                    ClubPulse
+                    Skyline
                   </div>
                   <div className="text-[10px] font-semibold text-[#8B93A7] tracking-wider uppercase">
                     Operating System
@@ -141,19 +155,26 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             </button>
           </div>
 
+          {/* Back to Home Button */}
+          <div className="mb-3">
+            <Link
+              to="/"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                sidebarCollapsed
+                  ? 'justify-center text-[#A6ACBE] hover:text-white hover:bg-[#23253E]'
+                  : 'bg-[#23253E]/80 text-[#CBD0E1] hover:text-white hover:bg-[#2E3152] border border-[#2B2E4E]'
+              }`}
+              title="Return to Chapter Homepage"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#847BFA] shrink-0" />
+              {!sidebarCollapsed && <span>← Back to Home</span>}
+            </Link>
+          </div>
+
           {/* Navigation Items (Scrollable) */}
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {/* Student Domain */}
-            {renderNavSection('Member Space', [
-              { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-              { to: '/events', label: 'Events & Tickets', icon: Calendar },
-              { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
-              { to: '/membership', label: 'Membership Status', icon: CreditCard },
-              { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag },
-              { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare },
-              { to: '/announcements', label: 'Bulletins', icon: Bell },
-              { to: '/expenses', label: 'Reimbursements', icon: Receipt }
-            ])}
+            {renderNavSection('Member Space', memberNavItems)}
 
             {/* Organizer Operations */}
             {isOrganizer &&
@@ -194,8 +215,8 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                     <div className="text-[10px] text-[#8B93A7] capitalize flex items-center gap-1">
                       <span>{role}</span>
                       <span>•</span>
-                      <span className={isMember ? 'text-[#16856B]' : 'text-[#687086]'}>
-                        {isMember ? 'Active' : 'Guest'}
+                      <span className={isMember ? (isVolunteer ? 'text-[#847BFA]' : 'text-[#16856B]') : 'text-[#687086]'}>
+                        {isMember ? (isVolunteer ? 'Volunteer Crew' : 'Participant') : 'Guest'}
                       </span>
                     </div>
                   </div>
@@ -239,11 +260,11 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
           ></div>
           <div className="relative w-72 max-w-[80vw] bg-[#17182B] h-full p-4 flex flex-col justify-between z-10 text-white">
             <div className="flex items-center justify-between pb-4 border-b border-[#23253E]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#625BF6] text-white flex items-center justify-center font-bold">
-                  <Activity className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-bold p-0.5 overflow-hidden">
+                  <img src="/logo.png" alt="Skyline" className="w-full h-full object-contain" />
                 </div>
-                <span className="font-bold text-sm">ClubPulse</span>
+                <span className="font-bold text-sm text-white">Skyline</span>
               </div>
               <button
                 onClick={() => setMobileDrawerOpen(false)}
@@ -254,16 +275,17 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {renderNavSection('Member Space', [
-                { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-                { to: '/events', label: 'Events & Tickets', icon: Calendar },
-                { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
-                { to: '/membership', label: 'Membership Status', icon: CreditCard },
-                { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag },
-                { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare },
-                { to: '/announcements', label: 'Bulletins', icon: Bell },
-                { to: '/expenses', label: 'Reimbursements', icon: Receipt }
-              ])}
+              {/* Back to Home Button in Drawer */}
+              <Link
+                to="/"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-[#23253E] text-white border border-[#2B2E4E] hover:bg-[#625BF6] transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#847BFA]" />
+                <span>← Back to Home Page</span>
+              </Link>
+
+              {renderNavSection('Member Space', memberNavItems)}
 
               {isOrganizer &&
                 renderNavSection('Operations', [
@@ -316,6 +338,16 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             >
               <Menu className="w-5 h-5" />
             </button>
+
+            {/* Back to Home Button in Top Header */}
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F7F8FC] hover:bg-[#EEEDFE] text-[#171A2B] hover:text-[#625BF6] border border-[#E7E9F1] text-xs font-bold transition-all shadow-2xs group"
+              title="Return to Chapter Homepage"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#625BF6] group-hover:-translate-x-0.5 transition-transform" />
+              <span className="hidden sm:inline">Home Page</span>
+            </Link>
 
             {/* Breadcrumb or Title */}
             <div>

@@ -46,6 +46,8 @@ class AuthService:
             role=user_doc["role"],
             membership_status=user_doc["membership_status"],
             membership_expiry=user_doc["membership_expiry"],
+            membership_tier=user_doc.get("membership_tier", "annual"),
+            membership_role=user_doc.get("membership_role", "participant"),
             created_at=user_doc["created_at"]
         )
         return TokenResponse(access_token=token, user=user_res)
@@ -71,6 +73,8 @@ class AuthService:
             role=user_doc.get("role", "student"),
             membership_status=user_doc.get("membership_status", "non_member"),
             membership_expiry=user_doc.get("membership_expiry"),
+            membership_tier=user_doc.get("membership_tier", "annual"),
+            membership_role=user_doc.get("membership_role", "participant"),
             created_at=user_doc.get("created_at", datetime.utcnow().isoformat())
         )
         return TokenResponse(access_token=token, user=user_res)

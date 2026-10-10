@@ -46,12 +46,12 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-[#625BF6] group-hover:bg-[#5048E5] transition-colors flex items-center justify-center text-white shadow-sm shadow-[#625BF6]/30">
-            <Activity className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-white border border-[#E7E9F1] shadow-xs flex items-center justify-center overflow-hidden p-0.5 group-hover:scale-105 transition-transform shrink-0">
+            <img src="/logo.png" alt="Skyline Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-extrabold text-lg tracking-tight text-[#171A2B] group-hover:text-[#625BF6] transition-colors">
-              ClubPulse
+              Skyline
             </span>
             <span className="hidden sm:inline-block ml-1.5 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[#625BF6]/10 text-[#625BF6] border border-[#625BF6]/20">
               Intelligence
