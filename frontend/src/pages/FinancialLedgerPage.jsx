@@ -63,7 +63,7 @@ export const FinancialLedgerPage = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `clubpulse_ledger_${Date.now()}.csv`;
+      a.download = `skyline_ledger_${Date.now()}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();

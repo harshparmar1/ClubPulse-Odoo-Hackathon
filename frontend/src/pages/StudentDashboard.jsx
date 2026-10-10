@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { api, formatINR } from '../api/client';
 import {
@@ -9,6 +10,7 @@ import {
   Users,
   ShieldAlert,
   ArrowRight,
+  ArrowLeft,
   Plus,
   Clock,
   MapPin,
@@ -19,16 +21,24 @@ import {
   Box,
   AlertTriangle,
   CreditCard,
-  CheckSquare
+  CheckSquare,
+  GraduationCap,
+  Tag,
+  ExternalLink,
+  ChevronRight,
+  X,
+  SlidersHorizontal,
+  Flame,
+  Award
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { RiskAlert } from '../components/RiskAlert';
-import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { AnnouncementSlider } from '../components/AnnouncementSlider';
 
 export const StudentDashboard = () => {
-  const { user, role, isMember } = useAuth();
+  const { user, role, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -39,47 +49,64 @@ export const StudentDashboard = () => {
   const [financialSummary, setFinancialSummary] = useState(null);
   const [riskData, setRiskData] = useState(null);
   const [allMembers, setAllMembers] = useState([]);
+  const [activeModalTicket, setActiveModalTicket] = useState(null);
+  const [taskUpdatingId, setTaskUpdatingId] = useState(null);
 
   const isOrganizer = ['organizer', 'admin'].includes(role);
   const isTreasurer = ['treasurer', 'admin'].includes(role);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setLoading(true);
-      try {
-        const promises = [
-          api.get('/api/events?published_only=true').catch(() => []),
-          api.get('/api/tickets/my-tickets').catch(() => []),
-          api.get(`/api/tasks?assignee_id=${user?.id}`).catch(() => []),
-          api.get('/api/announcements').catch(() => [])
-        ];
+  const fetchDashboard = async () => {
+    setLoading(true);
+    try {
+      const promises = [
+        api.get('/api/events?published_only=true').catch(() => []),
+        api.get('/api/tickets/my-tickets').catch(() => []),
+        api.get(`/api/tasks?assignee_id=${user?.id}`).catch(() => []),
+        api.get('/api/announcements').catch(() => [])
+      ];
 
-        if (isOrganizer || isTreasurer) {
-          promises.push(api.get('/api/risk/evaluate').catch(() => null));
-          promises.push(api.get('/api/transactions/summary').catch(() => null));
-          promises.push(api.get('/api/members').catch(() => []));
-        }
-
-        const results = await Promise.all(promises);
-        setEvents((results[0] || []).filter((e) => e.is_published !== false));
-        setMyTickets(results[1] || []);
-        setMyTasks(results[2] || []);
-        setAnnouncements(results[3] || []);
-
-        if (isOrganizer || isTreasurer) {
-          setRiskData(results[4]);
-          setFinancialSummary(results[5]);
-          setAllMembers(results[6] || []);
-        }
-      } catch (err) {
-        console.error('Dashboard data load error:', err);
-      } finally {
-        setLoading(false);
+      if (isOrganizer || isTreasurer) {
+        promises.push(api.get('/api/risk/evaluate').catch(() => null));
+        promises.push(api.get('/api/transactions/summary').catch(() => null));
+        promises.push(api.get('/api/members').catch(() => []));
       }
-    };
 
+      const results = await Promise.all(promises);
+      setEvents((results[0] || []).filter((e) => e.is_published !== false));
+      setMyTickets(results[1] || []);
+      setMyTasks(results[2] || []);
+      setAnnouncements(results[3] || []);
+
+      if (isOrganizer || isTreasurer) {
+        setRiskData(results[4]);
+        setFinancialSummary(results[5]);
+        setAllMembers(results[6] || []);
+      }
+    } catch (err) {
+      console.error('Dashboard data load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user) fetchDashboard();
   }, [user, role]);
+
+  const toggleTaskStatus = async (task) => {
+    const nextStatus = task.status === 'done' ? 'todo' : 'done';
+    setTaskUpdatingId(task.id);
+    try {
+      await api.patch(`/api/tasks/${task.id}`, { status: nextStatus });
+      setMyTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+      );
+    } catch (err) {
+      console.error('Task update failed:', err);
+    } finally {
+      setTaskUpdatingId(null);
+    }
+  };
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -88,75 +115,153 @@ export const StudentDashboard = () => {
     year: 'numeric'
   });
 
-  // Calculate meaningful metrics from real data
   const upcomingEvents = events.filter((e) => e.is_published);
   const activeMembersCount = allMembers.filter((m) => m.status === 'active').length;
   const criticalRisks = riskData?.risk_items?.filter((r) => r.severity === 'CRITICAL') || [];
   const warningRisks = riskData?.risk_items?.filter((r) => r.severity === 'WARNING') || [];
 
+  // Active (non-checked in) ticket for quick gate scan
+  const activeTicket = myTickets.find((t) => !t.checked_in) || myTickets[0];
+
   return (
     <DashboardLayout
-      pageTitle="Overview"
-      breadcrumbs={[{ label: 'ClubPulse' }, { label: 'Dashboard' }]}
+      pageTitle="Student Dashboard"
+      breadcrumbs={[{ label: 'Home', link: '/' }, { label: 'Student Dashboard' }]}
     >
-      <div className="space-y-8">
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* ---------------------------------------------------- */}
-        {/* A. Welcome Header with Contextual Primary Action     */}
+        {/* 0. Top Back Button Navigation Bar                    */}
         {/* ---------------------------------------------------- */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E7E9F1]">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-[#687086]">{todayFormatted}</span>
-              <span>•</span>
-              <StatusBadge
-                variant={role === 'admin' ? 'critical' : role === 'treasurer' ? 'warning' : 'accent'}
-              >
-                {role.toUpperCase()}
-              </StatusBadge>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#171A2B] tracking-tight">
-              Welcome back, {user?.full_name?.split(' ')[0] || 'Member'}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#687086] mt-0.5">
-              {isOrganizer
-                ? 'Review gate ticket scans, volunteer milestones, and operational attention alerts.'
-                : isTreasurer
-                ? 'Audit liquid cash reserves, incoming collections, and pending expense claims.'
-                : 'Browse chapter events, access gate QR passes, and check volunteer milestones.'}
-            </p>
-          </div>
+        <div className="flex items-center justify-between">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#EEEDFE] text-[#171A2B] hover:text-[#625BF6] text-xs font-bold border border-[#E7E9F1] shadow-2xs hover:border-[#625BF6]/40 transition-all group cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#625BF6] group-hover:-translate-x-1 transition-transform" />
+            <span>← Back to Home Page</span>
+          </Link>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
-            {isOrganizer ? (
-              <Link
-                to="/organizer/events"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-semibold shadow-xs transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create New Event</span>
-              </Link>
-            ) : isTreasurer ? (
-              <Link
-                to="/expenses"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-semibold shadow-xs transition-colors"
-              >
-                <Receipt className="w-4 h-4" />
-                <span>Review Claims</span>
-              </Link>
-            ) : (
-              <Link
-                to="/events"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-semibold shadow-xs transition-colors"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Browse Events</span>
-              </Link>
-            )}
+          <div className="hidden sm:flex items-center gap-2 text-xs text-[#687086]">
+            <span>Skyline Campus Platform</span>
+            <span>•</span>
+            <span className="font-semibold text-[#171A2B]">Student Space</span>
           </div>
         </div>
 
         {/* ---------------------------------------------------- */}
-        {/* B. KPI Summary Row (Derived 100% from Live APIs)    */}
+        {/* 1. Student Identity & Welcome Header                */}
+        {/* ---------------------------------------------------- */}
+        <div className="relative rounded-2xl bg-gradient-to-r from-white via-white to-[#EEEDFE]/40 p-6 border border-[#E7E9F1] shadow-[0_1px_4px_rgba(23,26,43,0.04)] overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#625BF6] text-white flex items-center justify-center font-black text-xl shadow-md shadow-[#625BF6]/25 shrink-0">
+                {user?.full_name?.[0] || 'S'}
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-black text-[#171A2B] tracking-tight">
+                    {user?.full_name || 'Student Member'}
+                  </h1>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#625BF6]/10 text-[#625BF6] border border-[#625BF6]/20">
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>ID: {user?.roll_number || 'STU-001'}</span>
+                  </span>
+                  <StatusBadge variant={isOrganizer ? 'active' : isMember ? (isVolunteer ? 'accent' : 'active') : 'warning'}>
+                    {isOrganizer
+                      ? 'Event Organizer'
+                      : isMember
+                        ? isVolunteer
+                          ? 'Active Volunteer Crew'
+                          : 'Active Member • Participant'
+                        : 'Standard Student (Non-Member)'}
+                  </StatusBadge>
+                </div>
+                <p className="text-xs sm:text-sm text-[#687086]">
+                  {isOrganizer
+                    ? 'Oversee event execution, attendee capacity, team operations, and live gate scanning.'
+                    : isMember
+                      ? isVolunteer
+                        ? 'Volunteer operational tasks assigned & Gate QR Scanner access enabled.'
+                        : 'All exclusive chapter privileges, 50% hackathon discount codes, and passes active.'
+                      : 'You can freely participate in campus events. Activate chapter membership to unlock 50% discounts.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Contextual Actions */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              {isOrganizer ? (
+                <Link
+                  to="/organizer/overview"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-bold shadow-xs transition-all hover:shadow-md"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Organizer Command Center</span>
+                </Link>
+              ) : isMember ? (
+                <Link
+                  to="/my-tickets"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-bold shadow-xs transition-all hover:shadow-md"
+                >
+                  <Ticket className="w-4 h-4" />
+                  <span>Show My QR Passes</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/membership"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-bold shadow-xs transition-all hover:shadow-md"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Unlock Member Perks</span>
+                </Link>
+              )}
+              <Link
+                to="/expenses"
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-[#F7F8FC] text-[#171A2B] text-xs font-semibold border border-[#E7E9F1] transition-colors"
+                title="Submit or track reimbursement claims"
+              >
+                <Receipt className="w-4 h-4 text-[#687086]" />
+                <span className="hidden sm:inline">Claim Expense</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------------------------------------------------- */}
+        {/* 2. Top Leadership Announcements Slider (React Slider) */}
+        {/* ---------------------------------------------------- */}
+        <AnnouncementSlider announcements={announcements} />
+
+        {/* ---------------------------------------------------- */}
+        {/* 3. Student Member Privileges Ribbon                  */}
+        {/* ---------------------------------------------------- */}
+        {!isOrganizer && (
+          <div className="rounded-xl p-4 bg-[#F7F8FD] border border-[#E1E4F5] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold shrink-0">
+                <Award className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-[#171A2B]">Student Organization Benefits: </span>
+                <span className="text-[#687086]">
+                  {isMember
+                    ? '50% Flat Off Passes • Early Merch Drop • Priority Workshop RSVPs • AGM Voting Right'
+                    : 'Upgrade to verified membership to enjoy 50% ticket waivers and exclusive club kits.'}
+                </span>
+              </div>
+            </div>
+            <Link
+              to="/membership"
+              className="inline-flex items-center gap-1.5 font-bold text-[#625BF6] hover:text-[#5048E5] shrink-0"
+            >
+              <span>{isMember ? 'Manage Membership' : 'Join for ₹500/yr'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* 4. KPI Metrics Row                                   */}
         {/* ---------------------------------------------------- */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -166,54 +271,40 @@ export const StudentDashboard = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {isTreasurer || isOrganizer ? (
+            {isOrganizer ? (
               <>
                 <StatCard
-                  title="Net Liquid Reserve"
-                  value={formatINR(financialSummary?.net_liquid_balance_paise || 0)}
-                  subtitle="Available operating funds"
-                  icon={Receipt}
-                  color="indigo"
-                />
-                <StatCard
-                  title="Active Members"
-                  value={activeMembersCount || allMembers.length}
-                  subtitle={`${allMembers.length} Total registered`}
-                  icon={Users}
-                  color="teal"
-                />
-                <StatCard
-                  title="Upcoming Events"
-                  value={upcomingEvents.length}
-                  subtitle="Published on calendar"
+                  title="Events Managed"
+                  value={`${events.length} Events`}
+                  subtitle="Publishing & capacity control"
                   icon={Calendar}
                   color="indigo"
-                />
-                <StatCard
-                  title="Operational Readiness"
-                  value={riskData ? `${riskData.readiness_score}/100` : '--'}
-                  subtitle={
-                    criticalRisks.length > 0
-                      ? `${criticalRisks.length} Critical risks detected`
-                      : 'All systems within threshold'
-                  }
-                  icon={ShieldAlert}
-                  color={criticalRisks.length > 0 ? 'rose' : 'teal'}
                   badge={
-                    riskData && (
-                      <StatusBadge variant={criticalRisks.length > 0 ? 'critical' : 'active'}>
-                        {criticalRisks.length > 0 ? 'Attention' : 'Healthy'}
-                      </StatusBadge>
-                    )
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
+                      Flight Control
+                    </span>
                   }
+                  onClick={() => navigate('/organizer/events')}
+                />
+
+                <StatCard
+                  title="Member Directory"
+                  value={`${allMembers.length} Members`}
+                  subtitle="Verified student memberships"
+                  icon={Users}
+                  color="teal"
+                  badge={
+                    <StatusBadge variant="active">Active Roster</StatusBadge>
+                  }
+                  onClick={() => navigate('/organizer/members')}
                 />
               </>
             ) : (
               <>
                 <StatCard
-                  title="My Membership"
-                  value={isMember ? 'Active Member' : 'Standard'}
-                  subtitle={isMember ? '50% Ticket discounts active' : 'Renew dues to unlock perks'}
+                  title="Membership Tier"
+                  value={isMember ? 'Active Member' : 'Standard Student'}
+                  subtitle={isMember ? '50% ticket discounts unlocked' : 'Renew dues to access perks'}
                   icon={CreditCard}
                   color={isMember ? 'teal' : 'amber'}
                   badge={
@@ -221,50 +312,73 @@ export const StudentDashboard = () => {
                       {isMember ? 'Verified' : 'Pending'}
                     </StatusBadge>
                   }
+                  onClick={() => navigate('/membership')}
                 />
+
                 <StatCard
                   title="My QR Passes"
-                  value={myTickets.length}
-                  subtitle="Registered event tickets"
+                  value={`${myTickets.length} Passes`}
+                  subtitle={
+                    myTickets.filter((t) => !t.checked_in).length > 0
+                      ? `${myTickets.filter((t) => !t.checked_in).length} ready for check-in`
+                      : 'No active event passes'
+                  }
                   icon={Ticket}
                   color="indigo"
-                />
-                <StatCard
-                  title="Volunteer Tasks"
-                  value={myTasks.filter((t) => t.status !== 'done').length}
-                  subtitle="Pending checklist items"
-                  icon={CheckSquare}
-                  color="teal"
-                />
-                <StatCard
-                  title="Upcoming Events"
-                  value={upcomingEvents.length}
-                  subtitle="Open for registration"
-                  icon={Calendar}
-                  color="indigo"
+                  badge={
+                    myTickets.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
+                        Digital QR
+                      </span>
+                    )
+                  }
+                  onClick={() => navigate('/my-tickets')}
                 />
               </>
             )}
+
+            <StatCard
+              title="Volunteer Tasks"
+              value={`${myTasks.filter((t) => t.status !== 'done').length} Pending`}
+              subtitle={`${myTasks.filter((t) => t.status === 'done').length} completed milestones`}
+              icon={CheckSquare}
+              color="teal"
+              badge={
+                myTasks.some((t) => t.priority === 'urgent' && t.status !== 'done') && (
+                  <StatusBadge variant="critical">Urgent Task</StatusBadge>
+                )
+              }
+              onClick={() => navigate('/my-tasks')}
+            />
+
+            <StatCard
+              title="Reimbursements"
+              value="Expense Hub"
+              subtitle="Track payouts and receipts"
+              icon={Receipt}
+              color="slate"
+              onClick={() => navigate('/expenses')}
+            />
           </div>
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* D. Operational Attention ("Needs Attention" Section) */}
+        {/* 5. Executive Intel (Visible to Organizer / Treasurer) */}
         {/* ---------------------------------------------------- */}
-        {riskData && (criticalRisks.length > 0 || warningRisks.length > 0) && (
-          <div className="space-y-3">
+        {(isOrganizer || isTreasurer) && riskData && (criticalRisks.length > 0 || warningRisks.length > 0) && (
+          <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-[#D98A18]" />
-                <h2 className="text-sm font-bold uppercase tracking-wider text-[#171A2B]">
-                  Operational Attention Required
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#171A2B]">
+                  Leadership Operational Attention ({role.toUpperCase()})
                 </h2>
               </div>
               <Link
                 to="/risk"
-                className="text-xs font-semibold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
+                className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
               >
-                <span>View Full Risk Engine</span>
+                <span>Inspect in Risk Engine</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -287,202 +401,706 @@ export const StudentDashboard = () => {
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* C. Upcoming Events Grid                              */}
+        {/* 6. Main Student Two-Column Experience                */}
         {/* ---------------------------------------------------- */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-[#171A2B] tracking-tight">
-                Upcoming Chapter Events
-              </h2>
-              <p className="text-xs text-[#687086]">
-                Conferences, workshops, and student networking hackathons.
-              </p>
-            </div>
-            <Link
-              to="/events"
-              className="text-xs font-semibold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
-            >
-              <span>Explore All Events</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {upcomingEvents.slice(0, 3).map((evt) => {
-              const capacity = evt.capacity || 100;
-              const booked = evt.booked_count || 0;
-              const fillPct = Math.min(100, Math.round((booked / capacity) * 100));
-
-              return (
-                <div
-                  key={evt.id}
-                  className="bg-white rounded-xl border border-[#E7E9F1] overflow-hidden shadow-[0_1px_3px_rgba(23,26,43,0.03)] hover:border-[#D3D7E8] hover:shadow-[0_4px_12px_rgba(23,26,43,0.05)] transition-all flex flex-col justify-between"
-                >
-                  <div className="h-36 bg-[#F3F4F8] relative overflow-hidden">
-                    <img
-                      src={
-                        evt.banner_url ||
-                        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80'
-                      }
-                      alt={evt.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2.5 right-2.5">
-                      <StatusBadge variant={booked >= capacity ? 'critical' : 'active'}>
-                        {booked >= capacity ? 'Sold Out' : `${capacity - booked} Seats Left`}
-                      </StatusBadge>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
+          {/* Left Column (7 cols): Active QR Pass & Upcoming Events */}
+          <div className="lg:col-span-7 space-y-7">
+            {/* A. Active Operations / QR Gate Credential */}
+            {isOrganizer ? (
+              <div className="bg-gradient-to-br from-[#17182B] to-[#23253E] text-white rounded-2xl p-6 border border-[#2B2E4E] shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-[#2B2E4E] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#625BF6]/20 text-[#847BFA] border border-[#625BF6]/40 flex items-center justify-center">
+                      <LayoutDashboard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-white">
+                        Organizer Operations Quick Launch
+                      </h2>
+                      <p className="text-[11px] text-[#8B93A7]">
+                        Monitor event live capacity, volunteer teams, and gate operations
+                      </p>
                     </div>
                   </div>
+                  <Link
+                    to="/organizer/overview"
+                    className="text-xs font-bold text-[#847BFA] hover:text-white flex items-center gap-1 transition-colors"
+                  >
+                    <span>Command Hub</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
 
-                  <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-                    <div className="space-y-1.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#625BF6]">
-                        {evt.tags?.[0] || 'Event'}
-                      </div>
-                      <h3 className="text-sm font-bold text-[#171A2B] line-clamp-1">{evt.title}</h3>
-                      <div className="space-y-1 text-xs text-[#687086] pt-1">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-[#A6ACBE]" />
-                          <span>{evt.event_date}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#A6ACBE]" />
-                          <span className="truncate">{evt.venue}</span>
-                        </div>
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <Link
+                    to="/organizer/events"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#625BF6]/20 text-[#847BFA] flex items-center justify-center mb-2">
+                      <Calendar className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Events Hub</div>
+                      <div className="text-[10px] text-[#8B93A7]">{events.length} Live & Draft Events</div>
+                    </div>
+                  </Link>
+                  <Link
+                    to="/organizer/scanner"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#16856B]/20 text-[#2AD1A3] flex items-center justify-center mb-2">
+                      <QrCode className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Fast QR Scanner</div>
+                      <div className="text-[10px] text-[#8B93A7]">Live Attendee Check-In</div>
+                    </div>
+                  </Link>
+                  <Link
+                    to="/organizer/members"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#D98A18]/20 text-[#FDBA74] flex items-center justify-center mb-2">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Member Roster</div>
+                      <div className="text-[10px] text-[#8B93A7]">{allMembers.length} Chapter Members</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-5">
+                <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-[#171A2B]">
+                        Gate Pass & Digital QR Credential
+                      </h2>
+                      <p className="text-[11px] text-[#687086]">
+                        Fast-track check-in code for upcoming chapter gatherings
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/my-tickets"
+                    className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
+                  >
+                    <span>All Passes ({myTickets.length})</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {activeTicket ? (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#F7F8FC] to-[#EEEDFE]/30 border border-[#E0E3F5] flex flex-col sm:flex-row items-center gap-5">
+                    <div className="bg-white p-3 rounded-xl border border-[#D4D1FD] shadow-xs shrink-0 flex flex-col items-center">
+                      <QRCodeSVG
+                        value={activeTicket.qr_token || activeTicket.id}
+                        size={110}
+                        level="H"
+                        includeMargin={false}
+                      />
+                      <span className="text-[9px] font-mono font-bold text-[#687086] mt-1.5 uppercase">
+                        {activeTicket.qr_token?.slice(0, 10) || 'GATE-PASS'}
+                      </span>
                     </div>
 
-                    <div className="pt-3 border-t border-[#E7E9F1] space-y-2.5">
-                      <div>
-                        <div className="flex justify-between text-[11px] text-[#687086] mb-1">
-                          <span>Capacity</span>
-                          <span>
-                            {booked}/{capacity} ({fillPct}%)
+                    <div className="space-y-2.5 flex-1 w-full text-center sm:text-left">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <StatusBadge variant={activeTicket.checked_in ? 'active' : 'accent'}>
+                          {activeTicket.checked_in ? 'Checked In' : 'Active Pass'}
+                        </StatusBadge>
+                        {activeTicket.is_member_discount_applied && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#16856B] bg-[#E7F5F0] px-2 py-0.5 rounded-full">
+                            <Tag className="w-3 h-3" />
+                            <span>Member 50% Applied</span>
                           </span>
-                        </div>
-                        <div className="w-full bg-[#F3F4F8] h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              fillPct >= 90 ? 'bg-[#D98A18]' : 'bg-[#16856B]'
-                            }`}
-                            style={{ width: `${fillPct}%` }}
-                          ></div>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#171A2B]">
+                          {activeTicket.event_title}
+                        </h3>
+                        <div className="space-y-1 text-xs text-[#687086] mt-1">
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
+                            <span>{activeTicket.event_date}</span>
+                          </div>
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#687086]" />
+                            <span className="truncate">{activeTicket.venue}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-bold text-[#171A2B]">
-                          {evt.member_price_paise === 0 ? (
-                            <span className="text-[#16856B]">Free (Member)</span>
-                          ) : (
-                            <span>{formatINR(evt.member_price_paise)}</span>
-                          )}
-                        </div>
-
-                        <Link
-                          to="/events"
-                          className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] text-[#625BF6] rounded-lg text-xs font-semibold transition-colors"
+                      <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
+                        <button
+                          onClick={() => setActiveModalTicket(activeTicket)}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#625BF6] text-white text-xs font-bold hover:bg-[#5048E5] transition-colors"
                         >
-                          Details & Pass
+                          Enlarge QR Code
+                        </button>
+                        <Link
+                          to="/my-tickets"
+                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E7E9F1] text-xs font-semibold text-[#171A2B] hover:bg-[#F3F4F8] transition-colors"
+                        >
+                          Pass Details
                         </Link>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ---------------------------------------------------- */}
-        {/* E. Recent Activity & Active Passes                   */}
-        {/* ---------------------------------------------------- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Active Passes for Current Student */}
-          <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <div className="flex items-center gap-2">
-                <Ticket className="w-4 h-4 text-[#625BF6]" />
-                <h3 className="text-sm font-bold text-[#171A2B]">My Active Passes</h3>
+                ) : (
+                  <div className="p-8 text-center rounded-xl bg-[#F7F8FC] border border-dashed border-[#D3D7E8] space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-[#EEEDFE] text-[#625BF6] flex items-center justify-center mx-auto">
+                      <Ticket className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#171A2B]">No active event passes</h4>
+                      <p className="text-xs text-[#687086] mt-0.5 max-w-sm mx-auto">
+                        Reserve tickets for upcoming tech hackathons, workshops, and student networking galas.
+                      </p>
+                    </div>
+                    <Link
+                      to="/events"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
+                    >
+                      <span>Browse Campus Events</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
               </div>
-              <Link to="/my-tickets" className="text-xs font-semibold text-[#625BF6]">
-                View All ({myTickets.length}) →
-              </Link>
-            </div>
+            )}
 
-            {myTickets.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#687086]">
-                You haven't reserved any passes yet.{' '}
-                <Link to="/events" className="text-[#625BF6] font-semibold">
-                  Browse events to register.
+            {/* B. Upcoming Chapter Events */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-[#171A2B] tracking-tight">
+                    Upcoming Campus Highlights
+                  </h2>
+                  <p className="text-xs text-[#687086]">
+                    Save up to 50% with verified club member pricing
+                  </p>
+                </div>
+                <Link
+                  to="/events"
+                  className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
+                >
+                  <span>All Events</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {events.slice(0, 4).map((evt) => {
+                  const capacity = evt.capacity || 100;
+                  const booked = evt.booked_count || 0;
+                  const fillPct = Math.min(100, Math.round((booked / capacity) * 100));
+
+                  return (
+                    <div
+                      key={evt.id}
+                      className="bg-white rounded-2xl border border-[#E7E9F1] overflow-hidden shadow-[0_1px_3px_rgba(23,26,43,0.03)] hover:border-[#D3D7E8] hover:shadow-[0_4px_12px_rgba(23,26,43,0.05)] transition-all flex flex-col justify-between"
+                    >
+                      <div className="h-32 bg-[#F3F4F8] relative overflow-hidden">
+                        <img
+                          src={
+                            evt.banner_url ||
+                            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80'
+                          }
+                          alt={evt.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2.5 right-2.5">
+                          <StatusBadge variant={booked >= capacity ? 'critical' : 'active'}>
+                            {booked >= capacity ? 'Sold Out' : `${capacity - booked} Seats Left`}
+                          </StatusBadge>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#625BF6]">
+                            {evt.tags?.[0] || 'Campus Event'}
+                          </span>
+                          <h3 className="text-sm font-extrabold text-[#171A2B] line-clamp-1">
+                            {evt.title}
+                          </h3>
+                          <div className="space-y-1 text-xs text-[#687086] pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
+                              <span>{evt.event_date}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-[#A6ACBE]" />
+                              <span className="truncate">{evt.venue}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-[#E7E9F1] space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <div>
+                              <div className="text-[10px] text-[#687086]">Student Member Price</div>
+                              <div className="font-extrabold text-[#171A2B]">
+                                {evt.member_price_paise === 0 ? (
+                                  <span className="text-[#16856B]">Free (Member)</span>
+                                ) : (
+                                  <span>{formatINR(evt.member_price_paise)}</span>
+                                )}
+                              </div>
+                            </div>
+                            <Link
+                              to="/events"
+                              className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] text-[#625BF6] rounded-xl text-xs font-bold transition-colors"
+                            >
+                              Reserve Pass
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (5 cols): Volunteer Checklist OR Participant Hub */}
+          <div className="lg:col-span-5 space-y-7">
+            {canVolunteer ? (
+              /* A. My Volunteer Checklist (VOLUNTEER ONLY) */
+              <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#E7F5F0] text-[#16856B] flex items-center justify-center font-bold">
+                      <CheckSquare className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-[#171A2B]">
+                        My Volunteer Checklist
+                      </h3>
+                      <p className="text-[11px] text-[#687086]">
+                        Chapter operational milestones assigned to you
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      to="/organizer/scanner"
+                      className="text-xs font-bold text-[#16856B] hover:text-[#13715B] flex items-center gap-1"
+                      title="Open Gate QR Scanner"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Gate Scanner</span>
+                    </Link>
+                    <Link
+                      to="/my-tasks"
+                      className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5]"
+                    >
+                      Tasks Board →
+                    </Link>
+                  </div>
+                </div>
+
+                {myTasks.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-[#687086] bg-[#F7F8FC] rounded-xl border border-dashed border-[#E7E9F1]">
+                    <CheckCircle2 className="w-7 h-7 text-[#16856B] mx-auto mb-2 opacity-80" />
+                    <p className="font-semibold text-[#171A2B]">No pending volunteer tasks</p>
+                    <p className="text-[11px] mt-0.5">
+                      You're all caught up on event and chapter volunteer duties.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {myTasks.slice(0, 4).map((task) => {
+                      const isDone = task.status === 'done';
+                      return (
+                        <div
+                          key={task.id}
+                          className={`p-3 rounded-xl border transition-all flex items-start gap-3 text-xs ${
+                            isDone
+                              ? 'bg-[#F7F8FC] border-[#E7E9F1] opacity-70'
+                              : 'bg-white border-[#E7E9F1] hover:border-[#D3D7E8]'
+                          }`}
+                        >
+                          <button
+                            onClick={() => toggleTaskStatus(task)}
+                            disabled={taskUpdatingId === task.id}
+                            className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                              isDone
+                                ? 'bg-[#16856B] border-[#16856B] text-white'
+                                : 'border-[#A6ACBE] hover:border-[#625BF6]'
+                            }`}
+                            title={isDone ? 'Mark as todo' : 'Mark as completed'}
+                          >
+                            {isDone && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          </button>
+
+                          <div className="flex-1 min-w-0">
+                            <h4
+                              className={`font-bold text-[#171A2B] truncate ${
+                                isDone ? 'line-through text-[#8B93A7]' : ''
+                              }`}
+                            >
+                              {task.title}
+                            </h4>
+                            <div className="flex items-center gap-2 text-[10px] text-[#687086] mt-0.5">
+                              {task.due_date && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{task.due_date}</span>
+                                </span>
+                              )}
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                                  task.priority === 'urgent'
+                                    ? 'bg-[#FDF2F4] text-[#D9485F]'
+                                    : 'bg-[#F3F4F8] text-[#687086]'
+                                }`}
+                              >
+                                {task.priority || 'Normal'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Gate Scanner Card for Volunteers */}
+                <Link
+                  to="/organizer/scanner"
+                  className="p-3 rounded-xl bg-gradient-to-r from-[#17182B] to-[#252849] text-white flex items-center justify-between hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white">
+                      <QrCode className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Launch Gate QR Scanner</span>
+                        <span className="text-[9px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.2 rounded font-mono">LIVE</span>
+                      </div>
+                      <div className="text-[10px] text-white/60">Manage check-in lane and scan attendee ticket passes</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white/60 group-hover:translate-x-1 group-hover:text-white transition-all" />
                 </Link>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {myTickets.slice(0, 3).map((tkt) => (
-                  <div
-                    key={tkt.id}
-                    className="p-3 rounded-lg border border-[#E7E9F1] bg-[#F7F8FC] flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <h4 className="font-bold text-[#171A2B]">{tkt.event_title}</h4>
-                      <div className="text-[11px] text-[#687086] mt-0.5">
-                        {tkt.event_date} • {tkt.venue}
+              /* A. Participant Hub & Volunteer Invitation (NON-VOLUNTEERS) */
+              <div className="space-y-4">
+                <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-extrabold text-[#171A2B]">
+                          Participant Privileges
+                        </h3>
+                        <p className="text-[11px] text-[#687086]">
+                          {isMember ? 'Active member discounts & credentials' : 'Campus competitor access'}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <StatusBadge variant={tkt.checked_in ? 'active' : 'accent'}>
-                        {tkt.checked_in ? 'Checked In' : 'Valid Pass'}
-                      </StatusBadge>
+                    <Link
+                      to="/events"
+                      className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5]"
+                    >
+                      Browse Events →
+                    </Link>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="p-3 rounded-xl bg-[#F7F8FC] border border-[#E7E9F1]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#687086] block">
+                        Hackathon Discount
+                      </span>
+                      <span className="text-lg font-black text-[#16856B]">
+                        {isMember ? '50% OFF' : 'Standard'}
+                      </span>
+                      <span className="text-[10px] text-[#687086] block mt-0.5">Applied at checkout</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#F7F8FC] border border-[#E7E9F1]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#687086] block">
+                        Active Passes
+                      </span>
+                      <span className="text-lg font-black text-[#171A2B]">
+                        {myTickets.length}
+                      </span>
+                      <span className="text-[10px] text-[#687086] block mt-0.5">Registered tickets</span>
                     </div>
                   </div>
-                ))}
+
+                  {/* Want to Volunteer? Banner */}
+                  <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#625BF6]/5 to-[#EEEDFE]/40 border border-[#625BF6]/20 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-[#171A2B] flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-[#625BF6]" />
+                        <span>Want to Help Organize Events?</span>
+                      </h4>
+                      <p className="text-[11px] text-[#687086] mt-0.5">
+                        Join the Volunteer Crew in Membership to unlock event tasks and gate QR scanning access.
+                      </p>
+                    </div>
+                    <Link
+                      to="/membership"
+                      className="px-3 py-1.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-lg text-xs font-bold shrink-0 transition-colors"
+                    >
+                      Join Track
+                    </Link>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Recent Bulletins */}
-          <div className="lg:col-span-5 bg-white rounded-xl p-5 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[#625BF6]" />
-                <h3 className="text-sm font-bold text-[#171A2B]">Latest Bulletins</h3>
+            {/* B. Quick Action Hub */}
+            <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-sm font-extrabold text-[#171A2B]">
+                  {isOrganizer ? 'Organizer Quick Actions' : 'Student Fast Actions'}
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#687086]">
+                  Shortcuts
+                </span>
               </div>
-              <Link to="/announcements" className="text-xs font-semibold text-[#625BF6]">
-                Feed →
-              </Link>
-            </div>
 
-            <div className="space-y-3">
-              {announcements.slice(0, 3).map((ann) => (
-                <div key={ann.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-[#687086]">{ann.author_name}</span>
-                    <StatusBadge
-                      variant={
-                        ann.priority === 'urgent'
-                          ? 'critical'
-                          : ann.priority === 'high'
-                          ? 'warning'
-                          : 'neutral'
-                      }
+              <div className="grid grid-cols-2 gap-3">
+                {isOrganizer ? (
+                  <>
+                    <Link
+                      to="/organizer/events"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
                     >
-                      {ann.priority}
-                    </StatusBadge>
-                  </div>
-                  <h4 className="text-xs font-bold text-[#171A2B]">{ann.title}</h4>
-                  <p className="text-[11px] text-[#687086] line-clamp-2 leading-relaxed">
-                    {ann.content}
-                  </p>
-                </div>
-              ))}
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Manage Events
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Create & edit</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/organizer/scanner"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
+                        <QrCode className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Fast Scanner
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Gate QR check-in</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/organizer/members"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Member Roster
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Student directory</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/organizer/tasks"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <CheckSquare className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Task Board
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Team assignments</p>
+                      </div>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/my-tickets"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <Ticket className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          QR Passes
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Event entry codes</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/membership"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Membership
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Perks & renewal</p>
+                      </div>
+                    </Link>
+
+                    {canVolunteer ? (
+                      <>
+                        <Link
+                          to="/organizer/scanner"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
+                            <QrCode className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              Gate Scanner
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Verify QR tickets</p>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/my-tasks"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                            <CheckSquare className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              My Tasks
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Volunteer duties</p>
+                          </div>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/events"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              All Events
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Hackathons & labs</p>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/expenses"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#D98A18]/10 text-[#D98A18] flex items-center justify-center mb-2">
+                            <Receipt className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              Reimburse
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">File claim receipts</p>
+                          </div>
+                        </Link>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 7. Modal for Full QR Pass Inspection                 */}
+      {/* ---------------------------------------------------- */}
+      {activeModalTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/70 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E7E9F1] animate-in zoom-in-95 duration-150 space-y-5 text-center relative">
+            <button
+              onClick={() => setActiveModalTicket(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-[#687086] hover:bg-[#F3F4F8] hover:text-[#171A2B] transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#625BF6]">
+                Official Digital Event Pass
+              </span>
+              <h3 className="text-lg font-black text-[#171A2B] mt-1">
+                {activeModalTicket.event_title}
+              </h3>
+              <p className="text-xs text-[#687086] mt-0.5">
+                {activeModalTicket.event_date} • {activeModalTicket.venue}
+              </p>
+            </div>
+
+            <div className="p-4 bg-white rounded-2xl border border-[#E7E9F1] shadow-inner inline-block mx-auto">
+              <QRCodeSVG
+                value={activeModalTicket.qr_token || activeModalTicket.id}
+                size={180}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[11px] font-mono font-bold text-[#687086] uppercase">
+                {activeModalTicket.qr_token}
+              </div>
+              <p className="text-[11px] text-[#8B93A7]">
+                Present this QR code at the check-in desk for entry.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setActiveModalTicket(null)}
+              className="w-full py-2.5 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
+            >
+              Close Pass
+            </button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };
 
 export default StudentDashboard;
+

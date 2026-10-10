@@ -1,8 +1,8 @@
-from typing import List
-from fastapi import APIRouter, Depends
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.ticket import TicketBookRequest, TicketResponse, TicketCheckInRequest, TicketCheckInResponse
 from app.services.ticket_service import TicketService
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -20,6 +20,15 @@ def get_my_tickets(current_user: dict = Depends(get_current_user)):
 @router.post("/check-in", response_model=TicketCheckInResponse)
 def check_in_ticket(
     data: TicketCheckInRequest,
-    current_user: dict = Depends(require_roles(["organizer", "admin", "treasurer"]))
+    current_user: dict = Depends(get_current_user)
 ):
+    user_role = current_user.get("role", "student")
+    membership_role = current_user.get("membership_role", "participant")
+    is_active_member = current_user.get("membership_status") == "active"
+    
+    if user_role not in ["organizer", "admin", "treasurer"] and not (is_active_member and membership_role == "volunteer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: requires organizer, admin, treasurer or active volunteer status to check in tickets."
+        )
     return TicketService.check_in(data.qr_token, reviewer=current_user)

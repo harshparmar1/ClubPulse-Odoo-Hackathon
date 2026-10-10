@@ -87,7 +87,7 @@ export const LandingPage = () => {
               </h1>
 
               <p className="gsap-hero-subtitle text-base sm:text-lg text-[#687086] max-w-2xl leading-relaxed">
-                ClubPulse transforms chaotic collegiate clubs into resilient operating engines. 
+                Skyline transforms chaotic collegiate clubs into resilient operating engines. 
                 Move beyond disconnected spreadsheets with connected financial ledgers, 
                 explainable risk auditing, and non-mutating event scenario simulations.
               </p>
@@ -239,10 +239,10 @@ export const LandingPage = () => {
       <footer className="mt-auto border-t border-[#E7E9F1] bg-white py-8 text-center text-xs text-[#687086]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-semibold text-[#171A2B]">
-            <Activity className="w-4 h-4 text-[#625BF6]" />
-            <span>ClubPulse • Odoo Hackathon 2026</span>
+            <img src="/logo.png" alt="Skyline" className="w-5 h-5 object-contain" />
+            <span>Skyline • Odoo Hackathon 2026</span>
           </div>
-          <p>© 2026 ClubPulse Intelligence Systems. Built with FastAPI, MongoDB Atlas, React & Tailwind.</p>
+          <p>© 2026 Skyline Intelligence Systems. Built with FastAPI, MongoDB Atlas, React & Tailwind.</p>
           <div className="flex items-center gap-4 text-[#687086]">
             <Link to="/events" className="hover:text-[#625BF6]">Events</Link>
             <Link to="/merch" className="hover:text-[#625BF6]">Merchandise</Link>

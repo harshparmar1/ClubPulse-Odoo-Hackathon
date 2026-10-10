@@ -12,7 +12,8 @@ from app.routers import (
     health, auth, members, events, tickets,
     products, orders, announcements, tasks,
     transactions, expenses, risk, simulator, reports,
-    readiness, correlation, actions, notifications, audit
+    readiness, correlation, actions, notifications, audit,
+    payments
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +73,7 @@ app.include_router(correlation.router)
 app.include_router(actions.router)
 app.include_router(notifications.router)
 app.include_router(audit.router)
+app.include_router(payments.router)
 
 @app.get("/", include_in_schema=False)
 def root():

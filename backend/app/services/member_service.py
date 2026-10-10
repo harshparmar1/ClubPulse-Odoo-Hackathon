@@ -43,13 +43,7 @@ class MemberService:
     def create_member(data: MemberCreate, current_user: Optional[dict] = None) -> MemberResponse:
         db = get_database()
         existing = db["members"].find_one({"email": data.email.lower()})
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="A membership profile with this email already exists."
-            )
         
-        member_id = f"mem_{uuid.uuid4().hex[:10]}"
         now = datetime.utcnow()
         now_iso = now.isoformat()
         
@@ -66,22 +60,43 @@ class MemberService:
 
         member_status = "active" if data.dues_paid_paise > 0 else "pending"
 
-        member_doc = {
-            "id": member_id,
-            "user_id": user_id,
-            "full_name": data.full_name,
-            "email": data.email.lower(),
-            "roll_number": data.roll_number,
-            "phone": data.phone,
-            "department": data.department,
-            "status": member_status,
-            "membership_type": data.membership_type,
-            "start_date": now_iso,
-            "expiry_date": expiry,
-            "dues_paid_paise": data.dues_paid_paise,
-            "created_at": now_iso
-        }
-        db["members"].insert_one(member_doc)
+        if existing:
+            member_id = existing["id"]
+            db["members"].update_one(
+                {"id": member_id},
+                {
+                    "$set": {
+                        "user_id": user_id or existing.get("user_id"),
+                        "full_name": data.full_name,
+                        "roll_number": data.roll_number,
+                        "phone": data.phone or existing.get("phone"),
+                        "department": data.department or existing.get("department"),
+                        "status": member_status,
+                        "membership_type": data.membership_type,
+                        "expiry_date": expiry,
+                        "updated_at": now_iso
+                    },
+                    "$inc": {"dues_paid_paise": data.dues_paid_paise}
+                }
+            )
+        else:
+            member_id = f"mem_{uuid.uuid4().hex[:10]}"
+            member_doc = {
+                "id": member_id,
+                "user_id": user_id,
+                "full_name": data.full_name,
+                "email": data.email.lower(),
+                "roll_number": data.roll_number,
+                "phone": data.phone,
+                "department": data.department,
+                "status": member_status,
+                "membership_type": data.membership_type,
+                "start_date": now_iso,
+                "expiry_date": expiry,
+                "dues_paid_paise": data.dues_paid_paise,
+                "created_at": now_iso
+            }
+            db["members"].insert_one(member_doc)
 
         # Update linked user account if present
         if user_id and member_status == "active":
@@ -97,33 +112,57 @@ class MemberService:
                 "amount_paise": data.dues_paid_paise,
                 "transaction_type": "income",
                 "category": "membership_dues",
-                "description": f"Annual membership dues for {data.full_name} ({data.roll_number})",
+                "description": f"{data.membership_type.capitalize()} membership dues for {data.full_name} ({data.roll_number})",
                 "status": "completed",
                 "reference_id": member_id,
                 "created_at": now_iso,
                 "created_by": user_id or "system"
             })
 
-        return MemberResponse(**{k: v for k, v in member_doc.items() if k != "_id"})
+        updated = db["members"].find_one({"id": member_id})
+        return MemberResponse(**{k: v for k, v in updated.items() if k != "_id"})
 
     @staticmethod
     def renew_membership(member_id: str, data: MemberRenew) -> MemberResponse:
         db = get_database()
-        member = db["members"].find_one({"id": member_id})
+        member = db["members"].find_one({
+            "$or": [{"id": member_id}, {"user_id": member_id}, {"email": member_id.lower()}]
+        })
         if not member:
-            raise HTTPException(status_code=404, detail="Member profile not found.")
+            # Check if user account exists
+            user_acc = db["users"].find_one({"$or": [{"id": member_id}, {"email": member_id.lower()}]})
+            if user_acc:
+                # Create member record for this user
+                member_id_new = f"mem_{uuid.uuid4().hex[:10]}"
+                db["members"].insert_one({
+                    "id": member_id_new,
+                    "user_id": user_acc["id"],
+                    "full_name": user_acc["full_name"],
+                    "email": user_acc["email"].lower(),
+                    "roll_number": user_acc.get("roll_number", "STU-2026-001"),
+                    "status": "active",
+                    "membership_type": "annual" if data.duration_months >= 12 else "semester",
+                    "start_date": datetime.utcnow().isoformat(),
+                    "expiry_date": (datetime.utcnow() + timedelta(days=data.duration_months * 30)).isoformat(),
+                    "dues_paid_paise": 50000 if data.duration_months >= 12 else 30000,
+                    "created_at": datetime.utcnow().isoformat()
+                })
+                member = db["members"].find_one({"id": member_id_new})
+            else:
+                raise HTTPException(status_code=404, detail="Member profile not found.")
         
         now = datetime.utcnow()
         days_to_add = data.duration_months * 30
         new_expiry = (now + timedelta(days=days_to_add)).isoformat()
-        renewal_fee_paise = 50000  # ₹500 in paise
+        renewal_fee_paise = 50000 if data.duration_months >= 12 else 30000
         
         db["members"].update_one(
-            {"id": member_id},
+            {"id": member["id"]},
             {
                 "$set": {
                     "status": "active",
                     "expiry_date": new_expiry,
+                    "membership_type": "annual" if data.duration_months >= 12 else "semester"
                 },
                 "$inc": {"dues_paid_paise": renewal_fee_paise}
             }
@@ -137,7 +176,7 @@ class MemberService:
                 {"$set": {"membership_status": "active", "membership_expiry": new_expiry}}
             )
         
-        # Record financial ledger entry
+        # Record financial ledger entry (treasurer / admin)
         db["transactions"].insert_one({
             "id": f"txn_{uuid.uuid4().hex[:10]}",
             "amount_paise": renewal_fee_paise,
@@ -145,10 +184,10 @@ class MemberService:
             "category": "membership_dues",
             "description": f"Membership renewal ({data.duration_months} months) for {member['full_name']}",
             "status": "completed",
-            "reference_id": f"renew_{member_id}_{int(now.timestamp())}",
+            "reference_id": f"renew_{member['id']}_{int(now.timestamp())}",
             "created_at": now.isoformat(),
             "created_by": user_id or "system"
         })
 
-        updated = db["members"].find_one({"id": member_id})
+        updated = db["members"].find_one({"id": member["id"]})
         return MemberResponse(**{k: v for k, v in updated.items() if k != "_id"})

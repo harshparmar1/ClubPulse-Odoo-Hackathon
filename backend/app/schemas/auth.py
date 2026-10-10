@@ -22,6 +22,8 @@ class UserResponse(BaseModel):
     role: str
     membership_status: str = "non_member"  # non_member, active, expired, pending
     membership_expiry: Optional[str] = None
+    membership_tier: Optional[str] = "annual"
+    membership_role: Optional[str] = "participant"  # participant, volunteer
     created_at: str
 
 class TokenResponse(BaseModel):

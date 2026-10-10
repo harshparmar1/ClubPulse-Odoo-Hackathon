@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, role, loading } = useAuth();
+export const ProtectedRoute = ({ children, allowedRoles, allowVolunteer = false }) => {
+  const { user, role, loading, isVolunteer } = useAuth();
 
   if (loading) {
     return (
@@ -20,7 +20,12 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(role)) {
+  const isAuthorized =
+    !allowedRoles ||
+    allowedRoles.includes(role) ||
+    (allowVolunteer && isVolunteer);
+
+  if (!isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl p-6 border border-slate-200 text-center shadow-sm">

@@ -9,23 +9,18 @@ class AnnouncementService:
     @staticmethod
     def list_announcements(current_user: Optional[dict] = None) -> List[AnnouncementResponse]:
         db = get_database()
-        query = {"is_published": True}
         
-        # Audience filtering
-        role = current_user.get("role", "student") if current_user else "guest"
-        is_member = current_user.get("membership_status") == "active" if current_user else False
-
-        if role in ["organizer", "treasurer", "admin"]:
-            # Organizers can see all
-            query = {}
-        elif is_member:
-            query["target_audience"] = {"$in": ["all", "members_only"]}
+        # All authenticated users (students, organizers, treasurers, admins) see all published announcements
+        # Unauthenticated guests see announcements targeted to "all"
+        if current_user:
+            query = {"is_published": True}
         else:
-            query["target_audience"] = "all"
+            query = {"is_published": True, "target_audience": "all"}
 
         cursor = db["announcements"].find(query).sort("created_at", -1)
         results = []
         for doc in cursor:
+            author_title = doc.get("author_name", "Leadership Board")
             results.append(AnnouncementResponse(
                 id=doc["id"],
                 title=doc["title"],
@@ -34,7 +29,7 @@ class AnnouncementService:
                 priority=doc.get("priority", "normal"),
                 is_published=doc.get("is_published", True),
                 author_id=doc.get("author_id", "admin"),
-                author_name=doc.get("author_name", "Executive Board"),
+                author_name=author_title,
                 created_at=doc.get("created_at", ""),
                 updated_at=doc.get("updated_at", "")
             ))
@@ -46,6 +41,11 @@ class AnnouncementService:
         ann_id = f"ann_{uuid.uuid4().hex[:10]}"
         now_iso = datetime.utcnow().isoformat()
 
+        user_role = current_user.get("role", "organizer").capitalize()
+        author_name = current_user.get("full_name", "Leadership")
+        if f"({user_role})" not in author_name:
+            author_name = f"{author_name} ({user_role})"
+
         doc = {
             "id": ann_id,
             "title": data.title,
@@ -54,7 +54,7 @@ class AnnouncementService:
             "priority": data.priority,
             "is_published": data.is_published,
             "author_id": current_user["id"],
-            "author_name": current_user["full_name"],
+            "author_name": author_name,
             "created_at": now_iso,
             "updated_at": now_iso
         }

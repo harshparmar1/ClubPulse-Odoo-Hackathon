@@ -12,7 +12,7 @@ export const formatINR = (paise) => {
 };
 
 export const apiRequest = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('clubpulse_token');
+  const token = localStorage.getItem('skyline_token') || localStorage.getItem('clubpulse_token');
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {})

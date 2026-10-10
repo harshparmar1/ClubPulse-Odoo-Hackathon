@@ -24,5 +24,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
         role=current_user.get("role", "student"),
         membership_status=current_user.get("membership_status", "non_member"),
         membership_expiry=current_user.get("membership_expiry"),
+        membership_tier=current_user.get("membership_tier", "annual"),
+        membership_role=current_user.get("membership_role", "participant"),
         created_at=current_user.get("created_at", "")
     )

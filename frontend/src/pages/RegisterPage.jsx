@@ -41,12 +41,12 @@ export const RegisterPage = () => {
   return (
     <div className="min-h-screen bg-[#F7F8FC] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <Link to="/" className="inline-flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-xl bg-[#625BF6] text-white flex items-center justify-center shadow-md shadow-[#625BF6]/25">
-            <Activity className="w-6 h-6" />
+        <Link to="/" className="inline-flex items-center gap-2.5 group">
+          <div className="w-12 h-12 rounded-xl bg-white border border-[#E7E9F1] shadow-xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+            <img src="/logo.png" alt="Skyline" className="w-full h-full object-contain" />
           </div>
           <span className="text-2xl font-extrabold text-[#171A2B] tracking-tight">
-            ClubPulse
+            Skyline
           </span>
         </Link>
         <h2 className="mt-4 text-xl font-bold tracking-tight text-[#171A2B]">
