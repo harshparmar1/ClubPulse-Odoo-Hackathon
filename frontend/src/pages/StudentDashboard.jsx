@@ -29,7 +29,8 @@ import {
   X,
   SlidersHorizontal,
   Flame,
-  Award
+  Award,
+  LayoutDashboard
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { StatCard } from '../components/StatCard';
