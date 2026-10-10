@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = "rzp_test_I1o9YOZinQtIYu"
     RAZORPAY_KEY_SECRET: str = "qz2S1Gdg4idESeQaqMxH0JIc"
 
+    # SMTP Email
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_EMAIL: str = "harshparmar1617@gmail.com"
+    SMTP_PASSWORD: str = "ccmpjeidtucfgzqq"
+
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://clubpulse.vercel.app"
 

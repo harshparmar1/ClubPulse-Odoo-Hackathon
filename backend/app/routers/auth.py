@@ -1,9 +1,34 @@
 from fastapi import APIRouter, Depends
-from app.schemas.auth import UserRegister, UserLogin, TokenResponse, UserResponse
+from app.schemas.auth import (
+    UserRegister,
+    UserLogin,
+    TokenResponse,
+    UserResponse,
+    SendOtpRequest,
+    VerifyOtpAndRegisterRequest,
+    SendLoginOtpRequest,
+    VerifyLoginOtpRequest
+)
 from app.services.auth_service import AuthService
 from app.core.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+@router.post("/send-otp")
+def send_otp(data: SendOtpRequest):
+    return AuthService.send_registration_otp(data)
+
+@router.post("/verify-otp-and-register", response_model=TokenResponse)
+def verify_otp_and_register(data: VerifyOtpAndRegisterRequest):
+    return AuthService.verify_otp_and_register(data)
+
+@router.post("/send-login-otp")
+def send_login_otp(data: SendLoginOtpRequest):
+    return AuthService.send_login_otp(data)
+
+@router.post("/verify-login-otp", response_model=TokenResponse)
+def verify_login_otp(data: VerifyLoginOtpRequest):
+    return AuthService.verify_login_otp(data)
 
 @router.post("/register", response_model=TokenResponse)
 def register(data: UserRegister):

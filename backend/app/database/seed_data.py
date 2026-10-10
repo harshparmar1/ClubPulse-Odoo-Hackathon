@@ -33,6 +33,42 @@ def seed_database(force: bool = False):
     # 1. USERS & ROLES
     demo_users = [
         {
+            "id": "usr_fixed_admin",
+            "email": "harshparmar1617@gmail.com",
+            "hashed_password": hash_password("123456"),
+            "full_name": "Harsh Parmar",
+            "roll_number": "ADM-001",
+            "phone": "+91 98765 43210",
+            "role": "admin",
+            "membership_status": "active",
+            "membership_expiry": (today + timedelta(days=365)).isoformat(),
+            "created_at": now_iso
+        },
+        {
+            "id": "usr_fixed_organizer",
+            "email": "pranitpawar3004@gmail.com",
+            "hashed_password": hash_password("123456"),
+            "full_name": "Pranit Pawar",
+            "roll_number": "ORG-003",
+            "phone": "+91 98765 43212",
+            "role": "organizer",
+            "membership_status": "active",
+            "membership_expiry": (today + timedelta(days=365)).isoformat(),
+            "created_at": now_iso
+        },
+        {
+            "id": "usr_fixed_treasurer",
+            "email": "yugr362@gmail.com",
+            "hashed_password": hash_password("123456"),
+            "full_name": "Yug",
+            "roll_number": "TRS-002",
+            "phone": "+91 98765 43211",
+            "role": "treasurer",
+            "membership_status": "active",
+            "membership_expiry": (today + timedelta(days=365)).isoformat(),
+            "created_at": now_iso
+        },
+        {
             "id": "usr_admin01",
             "email": "admin@clubpulse.edu",
             "hashed_password": hash_password("admin123"),

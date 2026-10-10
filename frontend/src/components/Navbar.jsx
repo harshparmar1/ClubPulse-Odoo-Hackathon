@@ -24,10 +24,9 @@ export const Navbar = () => {
   const [demoMenuOpen, setDemoMenuOpen] = useState(false);
 
   const demoAccounts = [
-    { role: 'student', email: 'student@clubpulse.edu', name: 'Ananya Roy (Student)' },
-    { role: 'organizer', email: 'organizer@clubpulse.edu', name: 'Rohan Deshmukh (Organizer)' },
-    { role: 'treasurer', email: 'treasurer@clubpulse.edu', name: 'Priya Nair (Treasurer)' },
-    { role: 'admin', email: 'admin@clubpulse.edu', name: 'Aarav Sharma (Admin)' }
+    { role: 'admin', email: 'harshparmar1617@gmail.com', name: 'Harsh Parmar (Admin)', password: '123456' },
+    { role: 'organizer', email: 'pranitpawar3004@gmail.com', name: 'Pranit Pawar (Organizer)', password: '123456' },
+    { role: 'treasurer', email: 'yugr362@gmail.com', name: 'Yug (Treasurer)', password: '123456' }
   ];
 
   const handleSwitchDemo = async (email, password) => {
@@ -141,7 +140,7 @@ export const Navbar = () => {
                 {demoAccounts.map((account) => (
                   <button
                     key={account.email}
-                    onClick={() => handleSwitchDemo(account.email, `${account.role}123`)}
+                    onClick={() => handleSwitchDemo(account.email, account.password || '123456')}
                     className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between hover:bg-[#F7F8FC] transition-colors ${
                       user?.email === account.email ? 'bg-[#625BF6]/10 text-[#625BF6] font-bold' : 'text-[#171A2B]'
                     }`}

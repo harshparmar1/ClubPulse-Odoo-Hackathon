@@ -49,6 +49,32 @@ export const AuthProvider = ({ children }) => {
     return res.user;
   };
 
+  const sendOtp = async (email, fullName) => {
+    return await api.post('/api/auth/send-otp', { email, full_name: fullName });
+  };
+
+  const verifyOtpAndRegister = async (registrationData) => {
+    const res = await api.post('/api/auth/verify-otp-and-register', registrationData);
+    localStorage.setItem('skyline_token', res.access_token);
+    localStorage.setItem('clubpulse_token', res.access_token);
+    setToken(res.access_token);
+    setUser(res.user);
+    return res.user;
+  };
+
+  const sendLoginOtp = async (email) => {
+    return await api.post('/api/auth/send-login-otp', { email });
+  };
+
+  const verifyLoginOtp = async (email, otp) => {
+    const res = await api.post('/api/auth/verify-login-otp', { email, otp });
+    localStorage.setItem('skyline_token', res.access_token);
+    localStorage.setItem('clubpulse_token', res.access_token);
+    setToken(res.access_token);
+    setUser(res.user);
+    return res.user;
+  };
+
   const logout = () => {
     localStorage.removeItem('skyline_token');
     localStorage.removeItem('clubpulse_token');
@@ -84,6 +110,10 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         register,
+        sendOtp,
+        verifyOtpAndRegister,
+        sendLoginOtp,
+        verifyLoginOtp,
         logout,
         refreshUser,
         switchTrack

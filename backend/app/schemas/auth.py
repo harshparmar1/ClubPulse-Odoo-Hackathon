@@ -9,6 +9,25 @@ class UserRegister(BaseModel):
     phone: Optional[str] = None
     role: Optional[str] = "student"  # student, organizer, treasurer, admin
 
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+    full_name: Optional[str] = "Student"
+
+class VerifyOtpAndRegisterRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=4, max_length=10)
+    password: str = Field(..., min_length=6)
+    full_name: str = Field(..., min_length=2)
+    roll_number: Optional[str] = "STU-001"
+    phone: Optional[str] = None
+
+class SendLoginOtpRequest(BaseModel):
+    email: EmailStr
+
+class VerifyLoginOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=4, max_length=10)
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str

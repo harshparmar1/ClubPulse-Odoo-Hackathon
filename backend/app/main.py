@@ -30,6 +30,9 @@ async def lifespan(app: FastAPI):
             logger.info("Database is empty. Populating with demo records...")
             seed_database(force=False)
             logger.info("Initial seed completed.")
+        from app.services.auth_service import AuthService
+        AuthService.ensure_fixed_staff_users(db)
+        logger.info("Fixed staff accounts verified.")
     except Exception as e:
         logger.error(f"Startup initialization notice: {e}")
     yield
