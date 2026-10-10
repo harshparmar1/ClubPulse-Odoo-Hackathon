@@ -21,6 +21,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 // Organizer Command Center & Management
 import { OrganizerOverview } from './pages/OrganizerOverview';
 import { MembersManagementPage } from './pages/MembersManagementPage';
+import { VolunteerRegistrationsPage } from './pages/VolunteerRegistrationsPage';
 import { EventsManagementPage } from './pages/EventsManagementPage';
 import { CreateEventPage } from './pages/CreateEventPage';
 import { EventDetailsPage } from './pages/EventDetailsPage';
@@ -28,6 +29,7 @@ import { EditEventPage } from './pages/EditEventPage';
 import { QRScannerPage } from './pages/QRScannerPage';
 import { MerchManagementPage } from './pages/MerchManagementPage';
 import { TaskBoardPage } from './pages/TaskBoardPage';
+import { DepartmentAssignmentsPage } from './pages/DepartmentAssignmentsPage';
 import { OrganizerAnnouncementsPage } from './pages/OrganizerAnnouncementsPage';
 
 // Operations, Intelligence & Treasury
@@ -37,12 +39,15 @@ import { SimulatorPage } from './pages/SimulatorPage';
 import { OrganizerReportsPage } from './pages/OrganizerReportsPage';
 import { FinancialLedgerPage } from './pages/FinancialLedgerPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
+import { EventAnalyticsPage } from './pages/EventAnalyticsPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public & Exploratory Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -95,7 +100,7 @@ export default function App() {
           <Route
             path="/expenses"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']} allowVolunteer={true}>
                 <ExpensesPage />
               </ProtectedRoute>
             }
@@ -121,6 +126,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
                 <MembersManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/volunteers"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <VolunteerRegistrationsPage />
               </ProtectedRoute>
             }
           />
@@ -169,6 +182,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
                 <TaskBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/department-assignments"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <DepartmentAssignmentsPage />
               </ProtectedRoute>
             }
           />
@@ -237,10 +258,18 @@ export default function App() {
             }
           />
           <Route
+            path="/event-analytics"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <EventAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/audit-logs"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
-                <AuditLogsPage />
+                <EventAnalyticsPage />
               </ProtectedRoute>
             }
           />
@@ -260,5 +289,6 @@ export default function App() {
         </Routes>
       </Router>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }

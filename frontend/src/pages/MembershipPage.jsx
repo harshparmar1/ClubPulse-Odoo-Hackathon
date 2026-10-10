@@ -171,16 +171,9 @@ export const MembershipPage = () => {
       pageTitle="Membership Status"
       breadcrumbs={[{ label: 'Home', link: '/' }, { label: 'Membership Status' }]}
     >
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Top Header Navigation */}
-        <div className="flex items-center justify-between pb-1">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white hover:bg-[#EEEDFE] text-[#171A2B] hover:text-[#625BF6] text-xs font-bold border border-[#E7E9F1] shadow-2xs hover:border-[#625BF6]/40 transition-all group"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#625BF6] group-hover:-translate-x-1 transition-transform" />
-            <span>Back to Home Page</span>
-          </Link>
+      <div className="w-full space-y-6">
+        {/* Top Header Information */}
+        <div className="flex items-center justify-end pb-1">
           <div className="text-xs text-[#687086]">
             <span>Skyline Membership</span>
             <span> • </span>

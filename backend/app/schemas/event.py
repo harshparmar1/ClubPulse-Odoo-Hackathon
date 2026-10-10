@@ -15,11 +15,13 @@ class EventCreate(BaseModel):
     is_published: bool = True
     is_ended: bool = False
     status: str = "upcoming"
-    required_volunteer_count: int = Field(default=5, ge=0)
+    required_volunteer_count: int = Field(default=5, ge=2)
     estimated_budget_paise: int = Field(default=2000000, ge=0)  # ₹20,000
 
     @model_validator(mode="after")
     def validate_event_create(self):
+        if self.required_volunteer_count < 2:
+            raise ValueError("A minimum of 2 volunteers is required (less than 2 is not permitted).")
         if self.end_date and self.event_date and self.end_date.strip() < self.event_date.strip():
             raise ValueError("End date and time cannot be earlier than start date and time.")
         if self.banner_url and self.banner_url.strip():
@@ -55,8 +57,8 @@ class EventUpdate(BaseModel):
             raise ValueError("Non-member price cannot be negative.")
         if self.estimated_budget_paise is not None and self.estimated_budget_paise < 0:
             raise ValueError("Estimated budget cannot be negative.")
-        if self.required_volunteer_count is not None and self.required_volunteer_count < 0:
-            raise ValueError("Required volunteer count cannot be negative.")
+        if self.required_volunteer_count is not None and self.required_volunteer_count < 2:
+            raise ValueError("A minimum of 2 volunteers is required (less than 2 is not permitted).")
         if self.end_date and self.event_date and self.end_date.strip() < self.event_date.strip():
             raise ValueError("End date and time cannot be earlier than start date and time.")
         if self.banner_url and self.banner_url.strip():

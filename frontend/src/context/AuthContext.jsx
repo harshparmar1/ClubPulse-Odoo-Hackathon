@@ -94,7 +94,12 @@ export const AuthProvider = ({ children }) => {
 
   const isMember = user?.membership_status === 'active';
   const membershipRole = user?.membership_role || 'participant';
-  const isVolunteer = isMember && membershipRole === 'volunteer';
+  const isVolunteer = Boolean(
+    user?.is_volunteer === true ||
+    user?.membership_role === 'volunteer' ||
+    (user?.volunteer_events && user.volunteer_events.length > 0) ||
+    (isMember && membershipRole === 'volunteer')
+  );
   const canVolunteer = isVolunteer || ['organizer', 'admin'].includes(user?.role);
 
   return (

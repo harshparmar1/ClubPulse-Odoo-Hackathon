@@ -1,73 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, formatINR } from '../api/client';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Users,
   Calendar,
-  QrCode,
-  Box,
+  Ticket,
+  UserCheck,
+  Network,
   Kanban,
-  ShieldAlert,
-  ArrowRight,
-  TrendingUp,
-  Clock,
   Sparkles,
   Camera,
-  Plus,
-  AlertTriangle,
-  CheckCircle2,
   Megaphone,
-  Receipt,
-  FileSpreadsheet,
-  SlidersHorizontal,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
   ChevronRight,
+  Plus,
   X,
-  ExternalLink,
-  Activity,
-  Layers
+  Palette,
+  Truck,
+  Utensils,
+  Cpu,
+  Sliders,
+  Layers,
+  Coffee,
+  HeartHandshake
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { StatCard } from '../components/StatCard';
-import { Badge } from '../components/Badge';
 import { QRScannerModal } from '../components/QRScannerModal';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { AnnouncementSlider } from '../components/AnnouncementSlider';
+
+const DEPT_ICONS = {
+  'Branding': Palette,
+  'Logistics': Truck,
+  'Food & Beverages': Utensils,
+  'Technical': Cpu,
+  'Public Relations': Megaphone,
+  'Operations': Sliders,
+  'Decorations & Stage': Sparkles,
+  'Hospitality': Coffee
+};
 
 export const OrganizerOverview = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
 
   const [events, setEvents] = useState([]);
-  const [members, setMembers] = useState([]);
+  const [volunteers, setVolunteers] = useState([]);
+  const [deptData, setDeptData] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [readinessSummaries, setReadinessSummaries] = useState([]);
-  const [actionSummary, setActionSummary] = useState(null);
-  const [riskData, setRiskData] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modals
+  // Quick Action Modals
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [createEventModal, setCreateEventModal] = useState(false);
   const [createTaskModal, setCreateTaskModal] = useState(false);
-  const [createMemberModal, setCreateMemberModal] = useState(false);
   const [createAnnouncementModal, setCreateAnnouncementModal] = useState(false);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
-  // Form states for quick actions
-  const [eventForm, setEventForm] = useState({
-    title: '',
-    venue: '',
-    event_date: '',
-    capacity: 100,
-    member_price_inr: 100,
-    non_member_price_inr: 200,
-    required_volunteer_count: 5,
-    estimated_budget_inr: 20000,
-    description: ''
-  });
+  const DEPARTMENTS = [
+    'Branding',
+    'Logistics',
+    'Food & Beverages',
+    'Technical',
+    'Public Relations',
+    'Operations',
+    'Decorations & Stage',
+    'Hospitality'
+  ];
 
+  // Task form state
   const [taskForm, setTaskForm] = useState({
     title: '',
     event_id: '',
+    department: 'Branding',
+    assignment_role: 'Volunteer',
     assignee_name: '',
     due_date: new Date().toISOString().slice(0, 10),
     priority: 'high',
@@ -75,15 +86,12 @@ export const OrganizerOverview = () => {
     description: ''
   });
 
-  const [memberForm, setMemberForm] = useState({
-    full_name: '',
-    email: '',
-    roll_number: '',
-    department: 'Computer Science',
-    membership_type: 'annual',
-    dues_paid_inr: 500
-  });
+  // Available volunteers state for Assign Task modal
+  const [availableVolunteers, setAvailableVolunteers] = useState([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [customNameMode, setCustomNameMode] = useState(false);
 
+  // Announcement form state
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
     content: '',
@@ -91,26 +99,42 @@ export const OrganizerOverview = () => {
     priority: 'normal'
   });
 
-  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const fetchAvailableVolunteers = async (eventId, dept) => {
+    try {
+      setLoadingVolunteers(true);
+      const res = await api.get('/api/events/available-volunteers', {
+        params: {
+          event_id: eventId || undefined,
+          department: dept || undefined
+        }
+      });
+      setAvailableVolunteers(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Failed to load available volunteers:', err);
+      setAvailableVolunteers([]);
+    } finally {
+      setLoadingVolunteers(false);
+    }
+  };
 
   const fetchOverviewData = async () => {
     try {
       setLoading(true);
-      const [evRes, memRes, tskRes, rskRes, readyRes, actRes] = await Promise.all([
+      const [evRes, volRes, deptRes, tskRes, memRes, annRes] = await Promise.all([
         api.get('/api/events').catch(() => []),
-        api.get('/api/members').catch(() => []),
+        api.get('/api/events/volunteer-applications').catch(() => []),
+        api.get('/api/tasks/department-assignments').catch(() => null),
         api.get('/api/tasks').catch(() => []),
-        api.get('/api/risk/evaluate').catch(() => null),
-        api.get('/api/readiness/events').catch(() => []),
-        api.get('/api/action-center/items').catch(() => null)
+        api.get('/api/members').catch(() => []),
+        api.get('/api/announcements').catch(() => [])
       ]);
 
       setEvents(evRes || []);
-      setMembers(memRes || []);
+      setVolunteers(volRes || []);
+      setDeptData(deptRes);
       setTasks(tskRes || []);
-      setRiskData(rskRes);
-      setReadinessSummaries(readyRes || []);
-      setActionSummary(actRes);
+      setMembers(memRes || []);
+      setAnnouncements(annRes || []);
     } catch (err) {
       console.error('Failed to load organizer flight control data:', err);
     } finally {
@@ -122,56 +146,36 @@ export const OrganizerOverview = () => {
     fetchOverviewData();
   }, [token]);
 
-  // Derived real metrics
-  const totalRegisteredMembers = members.length;
-  const activeMemberships = members.filter((m) => m.status === 'active').length;
-  const upcomingEvents = events.filter((e) => e.is_published);
-  const totalTicketsIssued = events.reduce((acc, e) => acc + (e.booked_count || 0), 0);
+  // Derived Key Metrics requested by user:
+  // 1. Total registrations across all events
+  const totalRegistrations = events.reduce((acc, e) => acc + (e.booked_count || 0), 0);
   const totalCheckedIn = events.reduce((acc, e) => acc + (e.checked_in_count || 0), 0);
-  const pendingTasks = tasks.filter((t) => t.status !== 'done');
-  const criticalOverdueTasks = tasks.filter((t) => t.is_overdue && t.is_critical_path);
+  const checkInRate = totalRegistrations > 0 ? Math.round((totalCheckedIn / totalRegistrations) * 100) : 0;
 
-  // Overall readiness: average of upcoming event readiness scores or fallback from risk evaluate
-  const avgReadinessScore = readinessSummaries.length > 0
-    ? Math.round(readinessSummaries.reduce((acc, r) => acc + (r.overall_readiness_score || 0), 0) / readinessSummaries.length)
-    : (riskData?.readiness_score ?? 85);
+  // 2. Total upcoming events
+  const upcomingEvents = events.filter((e) => e.is_published);
+  const totalCapacity = events.reduce((acc, e) => acc + (e.capacity || 0), 0);
 
-  // Critical unresolved issues from Action Center and Risk Engine
-  const criticalIssues = actionSummary?.items?.filter(
-    (item) => item.status !== 'resolved' && (item.severity === 'CRITICAL' || item.severity === 'HIGH')
-  ) || [];
+  // 3. No. of volunteers registered in all events
+  const totalVolunteersRegistered = volunteers.length;
+  const approvedVolunteersCount = volunteers.filter((v) => v.status === 'approved').length;
+  const pendingVolunteersCount = volunteers.filter((v) => v.status === 'pending').length;
 
-  // Tasks requiring immediate action: overdue or unassigned critical-path
-  const urgentTasks = tasks
-    .filter((t) => t.status !== 'done' && (t.is_overdue || t.is_critical_path || !t.assignee_id))
-    .slice(0, 5);
+  // 4. Department Heads & Sub-heads metrics
+  const totalHeadsAssigned = deptData?.departments?.reduce((acc, d) => acc + d.head_assigned, 0) || 0;
+  const totalSubHeadsAssigned = deptData?.departments?.reduce((acc, d) => acc + d.sub_head_assigned, 0) || 0;
 
-  // Quick Action Submissions
-  const handleCreateEvent = async (e) => {
-    e.preventDefault();
-    setActionSubmitting(true);
-    try {
-      await api.post('/api/events', {
-        title: eventForm.title,
-        venue: eventForm.venue,
-        event_date: eventForm.event_date,
-        capacity: Number(eventForm.capacity),
-        member_price_paise: Math.round(Number(eventForm.member_price_inr) * 100),
-        non_member_price_paise: Math.round(Number(eventForm.non_member_price_inr) * 100),
-        required_volunteer_count: Number(eventForm.required_volunteer_count),
-        estimated_budget_paise: Math.round(Number(eventForm.estimated_budget_inr) * 100),
-        description: eventForm.description || 'Chapter event organized via Flight Control.',
-        is_published: true
-      });
-      setCreateEventModal(false);
-      fetchOverviewData();
-    } catch (err) {
-      alert(`Event creation failed: ${err.message}`);
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
+  // Dynamic quota calculations for Assign Task modal
+  const currentDeptTasks = tasks.filter(
+    (t) => (!taskForm.event_id || t.event_id === taskForm.event_id) &&
+           (t.department || 'Operations').toLowerCase() === (taskForm.department || 'Branding').toLowerCase()
+  );
+  const headAssignedCount = currentDeptTasks.filter((t) => t.assignment_role === 'Head').length;
+  const subHeadAssignedCount = currentDeptTasks.filter((t) => t.assignment_role === 'Sub-head').length;
+  const remainingHeads = Math.max(0, 1 - headAssignedCount);
+  const remainingSubHeads = Math.max(0, 3 - subHeadAssignedCount);
 
+  // Handlers
   const handleCreateTask = async (e) => {
     e.preventDefault();
     setActionSubmitting(true);
@@ -179,6 +183,8 @@ export const OrganizerOverview = () => {
       await api.post('/api/tasks', {
         title: taskForm.title,
         event_id: taskForm.event_id || null,
+        department: taskForm.department || 'Operations',
+        assignment_role: taskForm.assignment_role || 'Volunteer',
         assignee_name: taskForm.assignee_name || null,
         assignee_id: taskForm.assignee_name ? 'vol_auto' : null,
         due_date: taskForm.due_date,
@@ -196,27 +202,6 @@ export const OrganizerOverview = () => {
     }
   };
 
-  const handleCreateMember = async (e) => {
-    e.preventDefault();
-    setActionSubmitting(true);
-    try {
-      await api.post('/api/members', {
-        full_name: memberForm.full_name,
-        email: memberForm.email,
-        roll_number: memberForm.roll_number,
-        department: memberForm.department,
-        membership_type: memberForm.membership_type,
-        dues_paid_paise: Math.round(Number(memberForm.dues_paid_inr) * 100)
-      });
-      setCreateMemberModal(false);
-      fetchOverviewData();
-    } catch (err) {
-      alert(`Member registration failed: ${err.message}`);
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     setActionSubmitting(true);
@@ -224,74 +209,65 @@ export const OrganizerOverview = () => {
       await api.post('/api/announcements', {
         title: announcementForm.title,
         content: announcementForm.content,
-        target_audience: announcementForm.target_audience,
-        priority: announcementForm.priority,
+        target_audience: 'all',
+        priority: announcementForm.priority || 'normal',
         is_published: true
       });
       setCreateAnnouncementModal(false);
+      setAnnouncementForm({
+        title: '',
+        content: '',
+        target_audience: 'all',
+        priority: 'normal'
+      });
       fetchOverviewData();
     } catch (err) {
-      alert(`Bulletin publishing failed: ${err.message}`);
+      alert(`Announcement failed: ${err.message}`);
     } finally {
       setActionSubmitting(false);
     }
   };
 
   return (
-    <DashboardLayout pageTitle="Organizer Command Hub">
-      <div className="space-y-8 max-w-7xl mx-auto">
+    <DashboardLayout pageTitle="Command Hub">
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* ================================================================= */}
-        {/* Flight Control Header Banner                                      */}
+        {/* 1. Header Command Hub Banner                                     */}
         {/* ================================================================= */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-[#17182B] text-white border border-[#2B2E4E] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
-          <div className="space-y-2 max-w-2xl z-10">
+        <div className="p-6 sm:p-7 rounded-2xl bg-[#17182B] text-white border border-[#2B2E4E] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden">
+          <div className="space-y-1.5 max-w-2xl z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#625BF6]/20 text-[#A594FD] border border-[#625BF6]/40 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Organizer Flight Control Center</span>
+              <span>Operations Command Hub</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Operational Command Hub
+              Operational Telemetry & Roster Control
             </h1>
             <p className="text-xs sm:text-sm text-[#A6ACBE] leading-relaxed">
-              Consolidated real-time operational telemetry across event ticketing capacities, gate check-in lanes, volunteer sprints, and proactive risk remediation.
+              Consolidated real-time operational telemetry across event registrations, volunteer deployments, and departmental readiness.
             </p>
           </div>
 
           {/* Quick Action Trigger Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 z-10">
-            <Link
-              to="/organizer/events/new"
-              className="px-4 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Event</span>
-            </Link>
             <button
               onClick={() => setScannerOpen(true)}
-              className="px-4 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+              className="px-4 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
             >
               <Camera className="w-4 h-4 text-[#A594FD]" />
               <span>Fast QR Scanner</span>
             </button>
             <button
               onClick={() => setCreateTaskModal(true)}
-              className="px-4 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+              className="px-4 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
             >
-              <Kanban className="w-4 h-4 text-[#C97A16]" />
+              <Kanban className="w-4 h-4 text-white" />
               <span>Assign Task</span>
             </button>
             <button
-              onClick={() => setCreateMemberModal(true)}
-              className="px-3 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
-              title="Register new student member"
-            >
-              <Users className="w-4 h-4 text-[#16856B]" />
-              <span>Add Member</span>
-            </button>
-            <button
               onClick={() => setCreateAnnouncementModal(true)}
-              className="px-3 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
-              title="Broadcast announcement"
+              className="px-3.5 py-2.5 bg-[#23253E] hover:bg-[#2B2E4E] text-white border border-[#3E4267] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+              title="Broadcast bulletin"
             >
               <Megaphone className="w-4 h-4 text-[#D9485F]" />
               <span>Publish Bulletin</span>
@@ -299,158 +275,76 @@ export const OrganizerOverview = () => {
           </div>
         </div>
 
+        {/* Live Broadcast Bulletins on Organizer Side */}
+        <AnnouncementSlider announcements={announcements} />
+
         {/* ================================================================= */}
-        {/* Core Live Operational Metrics (All Derived from Backend Data)     */}
+        {/* 2. Key Highlighted KPI Stat Cards                                 */}
         {/* ================================================================= */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link to="/organizer/members" className="group">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI 1: Total Registrations */}
+          <Link to="/organizer/events" className="group">
             <StatCard
-              title="Registered Members"
-              value={totalRegisteredMembers}
-              subtitle={`${activeMemberships} Active annual passes`}
-              icon={Users}
+              title="Total Event Registrations"
+              value={totalRegistrations}
+              subtitle={`${totalCheckedIn} Gate check-ins (${checkInRate}% yield)`}
+              icon={Ticket}
               color="indigo"
             />
           </Link>
+
+          {/* KPI 2: Total Upcoming Events */}
           <Link to="/organizer/events" className="group">
             <StatCard
-              title="Event Tickets Issued"
-              value={totalTicketsIssued}
-              subtitle={`${totalCheckedIn} Verified check-ins`}
+              title="Upcoming Events"
+              value={upcomingEvents.length}
+              subtitle={`${totalCapacity} Total capacity across venues`}
               icon={Calendar}
+              color="amber"
+            />
+          </Link>
+
+          {/* KPI 3: Volunteers Registered in All Events */}
+          <div className="group">
+            <StatCard
+              title="Volunteers Registered"
+              value={totalVolunteersRegistered}
+              subtitle={`${approvedVolunteersCount} Approved • ${pendingVolunteersCount} Pending`}
+              icon={UserCheck}
               color="teal"
             />
-          </Link>
-          <Link to="/organizer/tasks" className="group">
-            <StatCard
-              title="Pending Sprint Tasks"
-              value={pendingTasks.length}
-              subtitle={`${criticalOverdueTasks.length} Critical overdue`}
-              icon={Kanban}
-              color={criticalOverdueTasks.length > 0 ? 'rose' : 'amber'}
-            />
-          </Link>
-          <Link to="/action-center" className="group">
-            <StatCard
-              title="Overall Readiness Score"
-              value={`${avgReadinessScore} / 100`}
-              subtitle={`${criticalIssues.length} Critical unresolved alerts`}
-              icon={ShieldAlert}
-              color={avgReadinessScore >= 80 ? 'teal' : (avgReadinessScore >= 60 ? 'amber' : 'rose')}
-            />
-          </Link>
-        </div>
-
-        {/* ================================================================= */}
-        {/* Section A: Critical Attention (Highest-Priority Unresolved Items) */}
-        {/* ================================================================= */}
-        <div className="bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-[#E7E9F1] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#D9485F]/10 text-[#D9485F] flex items-center justify-center font-bold">
-                <ShieldAlert className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
-                  <span>Critical Attention</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
-                    {criticalIssues.length} Unresolved
-                  </span>
-                </h2>
-                <p className="text-xs text-[#687086]">
-                  Highest-priority operational bottlenecks identified by the Operational Risk Engine.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              to="/action-center"
-              className="text-xs font-semibold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1 transition-colors self-start sm:self-auto"
-            >
-              <span>View Full Action Center</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
 
-          <div className="p-5">
-            {loading ? (
-              <LoadingSkeleton lines={3} />
-            ) : criticalIssues.length === 0 ? (
-              <div className="p-6 text-center rounded-xl bg-[#16856B]/5 border border-[#16856B]/20">
-                <CheckCircle2 className="w-8 h-8 text-[#16856B] mx-auto mb-2" />
-                <div className="text-xs font-bold text-[#16856B]">
-                  No Critical Operational Blockers Found
-                </div>
-                <p className="text-[11px] text-[#687086] mt-0.5">
-                  All active events, volunteer assignments, and cash reserves are operating within nominal thresholds.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {criticalIssues.slice(0, 4).map((issue) => (
-                  <div
-                    key={issue.id}
-                    onClick={() => navigate('/action-center')}
-                    className="p-4 rounded-xl border border-[#E7E9F1] hover:border-[#625BF6]/40 hover:bg-[#F7F8FC]/60 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                  >
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={issue.severity === 'CRITICAL' ? 'critical' : 'warning'}>
-                          {issue.severity}
-                        </Badge>
-                        <span className="text-[11px] font-semibold text-[#687086] uppercase tracking-wider">
-                          {issue.category}
-                        </span>
-                        {issue.target_entity_type && (
-                          <span className="text-[10px] text-[#687086] bg-[#F7F8FC] px-2 py-0.5 rounded border border-[#E7E9F1]">
-                            {issue.target_entity_type}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm font-bold text-[#171A2B] group-hover:text-[#625BF6] transition-colors">
-                        {issue.title}
-                      </div>
-                      <p className="text-xs text-[#687086] line-clamp-1">
-                        {issue.description || 'Remediation guidance available in Action Center.'}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                      {issue.assignee_name && (
-                        <span className="text-[11px] text-[#687086] font-medium">
-                          Assigned: {issue.assignee_name}
-                        </span>
-                      )}
-                      <span className="text-xs font-semibold text-[#625BF6] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        <span>Resolve</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* KPI 4: Department Leadership Readiness */}
+          <div className="group">
+            <StatCard
+              title="Department Leadership"
+              value={`${totalHeadsAssigned} / 8 Heads`}
+              subtitle={`${totalSubHeadsAssigned} / 24 Sub-heads assigned`}
+              icon={Network}
+              color="rose"
+            />
           </div>
         </div>
 
         {/* ================================================================= */}
-        {/* Section B & C Grid: Upcoming Events & Tasks Requiring Action      */}
+        {/* 3. Operational Visualizations Grid                                */}
         {/* ================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Section B: Upcoming Events & Readiness (7 Cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Visual 1: Event-Wise Registration vs Capacity Yield (7 Cols) */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs overflow-hidden flex flex-col justify-between">
             <div>
               <div className="p-5 border-b border-[#E7E9F1] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold">
-                    <Calendar className="w-4 h-4" />
+                    <Ticket className="w-4 h-4" />
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-[#171A2B]">
-                      Upcoming Events & Readiness
+                      Event Registrations & Capacity Yield
                     </h2>
                     <p className="text-xs text-[#687086]">
-                      Capacities, check-in yield, and deterministic readiness scores.
+                      Live attendee registration progress across all upcoming events.
                     </p>
                   </div>
                 </div>
@@ -464,66 +358,68 @@ export const OrganizerOverview = () => {
                 </Link>
               </div>
 
-              <div className="p-5 divide-y divide-[#E7E9F1]">
+              <div className="p-5 space-y-5">
                 {loading ? (
                   <LoadingSkeleton lines={4} />
                 ) : upcomingEvents.length === 0 ? (
                   <div className="py-8 text-center text-xs text-[#687086]">
-                    No upcoming events scheduled. Click "Create Event" to schedule.
+                    No active events scheduled.
                   </div>
                 ) : (
-                  upcomingEvents.slice(0, 4).map((evt) => {
-                    const readySummary = readinessSummaries.find((r) => r.event_id === evt.id);
-                    const score = readySummary?.overall_readiness_score ?? 80;
-                    const capPct = Math.min(100, Math.round(((evt.booked_count || 0) / Math.max(1, evt.capacity)) * 100));
+                  upcomingEvents.map((evt) => {
+                    const booked = evt.booked_count || 0;
+                    const cap = Math.max(1, evt.capacity || 100);
+                    const pct = Math.min(100, Math.round((booked / cap) * 100));
+                    const checkedIn = evt.checked_in_count || 0;
 
                     return (
                       <div
                         key={evt.id}
-                        onClick={() => navigate('/organizer/events')}
-                        className="py-4 first:pt-0 last:pb-0 hover:bg-[#F7F8FC]/70 px-2 -mx-2 rounded-xl transition-all cursor-pointer group"
+                        className="p-4 rounded-xl border border-[#E7E9F1] bg-[#F7F8FC]/50 hover:bg-[#F7F8FC] hover:border-[#625BF6]/30 transition-all space-y-2.5"
                       >
-                        <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-bold text-[#171A2B] group-hover:text-[#625BF6] transition-colors">
+                            <div className="text-sm font-bold text-[#171A2B]">
                               {evt.title}
                             </div>
-                            <div className="text-xs text-[#687086] flex items-center gap-3 mt-0.5">
-                              <span>{evt.event_date}</span>
+                            <div className="text-xs text-[#687086] flex items-center gap-2 mt-0.5">
+                              <span>📅 {evt.event_date}</span>
                               <span>•</span>
-                              <span>{evt.venue}</span>
+                              <span>📍 {evt.venue}</span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             <span
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                                score >= 80
-                                  ? 'bg-[#16856B]/10 text-[#16856B] border-[#16856B]/30'
-                                  : score >= 50
-                                  ? 'bg-[#C97A16]/10 text-[#C97A16] border-[#C97A16]/30'
-                                  : 'bg-[#D9485F]/10 text-[#D9485F] border-[#D9485F]/30'
+                              className={`px-2 py-0.5 rounded-lg text-xs font-bold border ${
+                                pct >= 90
+                                  ? 'bg-[#D9485F]/10 text-[#D9485F] border-[#D9485F]/20'
+                                  : pct >= 50
+                                  ? 'bg-[#625BF6]/10 text-[#625BF6] border-[#625BF6]/20'
+                                  : 'bg-[#16856B]/10 text-[#16856B] border-[#16856B]/20'
                               }`}
                             >
-                              {score} / 100 Score
+                              {pct}% Booked
                             </span>
                           </div>
                         </div>
 
-                        {/* Capacity Progress Bar */}
-                        <div className="space-y-1.5 mt-3">
+                        {/* Progress Bar Visualization */}
+                        <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px] text-[#687086]">
                             <span>
-                              Booked: <strong className="text-[#171A2B]">{evt.booked_count}</strong> / {evt.capacity} seats ({capPct}%)
+                              Registered: <strong className="text-[#171A2B]">{booked}</strong> / {cap} seats
                             </span>
                             <span className="text-[#16856B] font-semibold">
-                              {evt.checked_in_count} verified at gate
+                              ✓ {checkedIn} Checked-in at Gate
                             </span>
                           </div>
-                          <div className="w-full bg-[#E7E9F1] h-1.5 rounded-full overflow-hidden">
+                          <div className="w-full bg-[#E7E9F1] h-2 rounded-full overflow-hidden">
                             <div
-                              className="bg-[#625BF6] h-full rounded-full transition-all duration-500"
-                              style={{ width: `${capPct}%` }}
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                pct >= 90 ? 'bg-[#D9485F]' : pct >= 50 ? 'bg-[#625BF6]' : 'bg-[#16856B]'
+                              }`}
+                              style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>
@@ -535,519 +431,426 @@ export const OrganizerOverview = () => {
             </div>
 
             <div className="p-4 bg-[#F7F8FC] border-t border-[#E7E9F1] flex items-center justify-between text-xs text-[#687086]">
-              <span>Need what-if stress testing?</span>
-              <Link to="/simulator" className="font-semibold text-[#625BF6] hover:underline flex items-center gap-1">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Open Live Event Simulator →</span>
-              </Link>
+              <span>Need attendee check-in management?</span>
+              <button
+                onClick={() => setScannerOpen(true)}
+                className="font-semibold text-[#625BF6] hover:underline flex items-center gap-1"
+              >
+                <span>Launch Fast QR Gate Scanner →</span>
+              </button>
             </div>
           </div>
 
-          {/* Section C: Tasks Requiring Action (5 Cols) */}
+          {/* Visual 2: Volunteer Deployment by Event (5 Cols) */}
           <div className="lg:col-span-5 bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs overflow-hidden flex flex-col justify-between">
             <div>
               <div className="p-5 border-b border-[#E7E9F1] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#C97A16]/10 text-[#C97A16] flex items-center justify-center font-bold">
-                    <Kanban className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center font-bold">
+                    <UserCheck className="w-4 h-4" />
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-[#171A2B]">
-                      Tasks Requiring Action
+                      Volunteer Mobilization
                     </h2>
                     <p className="text-xs text-[#687086]">
-                      Overdue dates & unassigned critical-path roles.
+                      Event-wise registered volunteers vs quota needed.
                     </p>
                   </div>
                 </div>
 
                 <Link
-                  to="/organizer/tasks"
-                  className="text-xs font-semibold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1 transition-colors"
+                  to="/organizer/volunteers"
+                  className="text-xs font-semibold text-[#16856B] hover:underline flex items-center gap-1"
                 >
-                  <span>Board</span>
+                  <span>Roster</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
 
-              <div className="p-5 divide-y divide-[#E7E9F1]">
+              <div className="p-5 space-y-4">
                 {loading ? (
                   <LoadingSkeleton lines={4} />
-                ) : urgentTasks.length === 0 ? (
+                ) : upcomingEvents.length === 0 ? (
                   <div className="py-8 text-center text-xs text-[#687086]">
-                    No urgent task blockers. Volunteer velocity is on schedule.
+                    No event volunteer requirements active.
                   </div>
                 ) : (
-                  urgentTasks.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => navigate('/organizer/tasks')}
-                      className="py-3 first:pt-0 last:pb-0 hover:bg-[#F7F8FC]/70 px-2 -mx-2 rounded-xl transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <div className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6] transition-colors">
-                            {t.title}
-                          </div>
-                          <div className="text-[11px] text-[#687086] flex items-center gap-2">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>Due {t.due_date}</span>
-                            </span>
-                            <span>•</span>
-                            <span>{t.assignee_name || <em className="text-[#D9485F]">Unassigned</em>}</span>
-                          </div>
+                  upcomingEvents.map((evt) => {
+                    const eventVols = volunteers.filter((v) => v.event_id === evt.id);
+                    const approvedVols = eventVols.filter((v) => v.status === 'approved').length;
+                    const needed = Math.max(1, evt.required_volunteer_count || 5);
+                    const fillPct = Math.min(100, Math.round((approvedVols / needed) * 100));
+
+                    return (
+                      <div
+                        key={evt.id}
+                        className="p-3.5 rounded-xl border border-[#E7E9F1] bg-[#F7F8FC]/50 hover:bg-[#F7F8FC] transition-all space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs text-[#171A2B] truncate">
+                            {evt.title}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                              approvedVols >= needed
+                                ? 'bg-[#16856B]/15 text-[#16856B]'
+                                : 'bg-[#C97A16]/15 text-[#C97A16]'
+                            }`}
+                          >
+                            {approvedVols >= needed ? 'Staffed ✓' : 'Recruiting'}
+                          </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {t.is_overdue && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
-                              Overdue
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px] text-[#687086]">
+                            <span>
+                              Registered: <strong className="text-[#171A2B]">{approvedVols}</strong> / {needed} volunteers
                             </span>
-                          )}
-                          {t.is_critical_path && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#625BF6]/10 text-[#625BF6] border border-[#625BF6]/20">
-                              Critical
+                            <span className="font-semibold text-[#16856B]">
+                              {fillPct}%
                             </span>
-                          )}
+                          </div>
+                          <div className="w-full bg-[#E7E9F1] h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[#16856B] transition-all duration-500"
+                              style={{ width: `${fillPct}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
 
             <div className="p-4 bg-[#F7F8FC] border-t border-[#E7E9F1] flex items-center justify-between text-xs text-[#687086]">
-              <span>Assign student volunteers directly</span>
-              <button
-                onClick={() => setCreateTaskModal(true)}
-                className="font-semibold text-[#625BF6] hover:underline"
-              >
-                + Assign New Sprint Task
-              </button>
+              <span>Active volunteer registration intake</span>
+              <span className="font-semibold text-[#16856B]">
+                {totalVolunteersRegistered} Applied
+              </span>
             </div>
           </div>
         </div>
+
+        {/* ================================================================= */}
+        {/* 4. Department Leadership Quick Telemetry                          */}
+        {/* ================================================================= */}
+        <div className="bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold">
+                <Network className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#171A2B]">
+                  Department Team Allocations
+                </h2>
+                <p className="text-xs text-[#687086]">
+                  Role quotas: 1 Head, up to 3 Sub-heads, and active volunteers per department.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/organizer/department-assignments"
+              className="text-xs font-semibold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1 self-start sm:self-auto"
+            >
+              <span>View Full Department Roster</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {DEPARTMENTS.map((deptName) => {
+              const Icon = DEPT_ICONS[deptName] || Layers;
+              const deptInfo = deptData?.departments?.find((d) => d.department === deptName);
+              const headCount = deptInfo?.head_assigned || 0;
+              const subCount = deptInfo?.sub_head_assigned || 0;
+
+              return (
+                <div
+                  key={deptName}
+                  className="p-3 rounded-xl border border-[#E7E9F1] bg-[#F7F8FC]/50 transition-all text-center space-y-1.5"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="font-bold text-[11px] text-[#171A2B] truncate">
+                    {deptName}
+                  </div>
+                  <div className="text-[10px] space-y-0.5">
+                    <div className={headCount > 0 ? 'text-[#16856B] font-semibold' : 'text-[#8B93A7]'}>
+                      Head: {headCount}/1
+                    </div>
+                    <div className="text-[#687086]">
+                      Subs: {subCount}/3
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ================================================================= */}
+        {/* 5. Modals: Assign Task & Announcement                             */}
+        {/* ================================================================= */}
+
+        {/* Assign Task Modal */}
+        {createTaskModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
+                  <Kanban className="w-4 h-4 text-[#625BF6]" />
+                  <span>Assign Volunteer Sprint Task</span>
+                </h3>
+                <button onClick={() => setCreateTaskModal(false)} className="text-[#687086] hover:text-[#171A2B]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Task Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Stage Sound & Mic Rigging"
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Associated Event</label>
+                  <select
+                    value={taskForm.event_id}
+                    onChange={(e) => {
+                      const newEvent = e.target.value;
+                      setTaskForm({ ...taskForm, event_id: newEvent, assignee_name: '' });
+                      fetchAvailableVolunteers(newEvent, taskForm.department);
+                    }}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  >
+                    <option value="">General Club Operations</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Department *</label>
+                    <select
+                      value={taskForm.department}
+                      onChange={(e) => {
+                        const newDept = e.target.value;
+                        setTaskForm({ ...taskForm, department: newDept, assignee_name: '' });
+                        fetchAvailableVolunteers(taskForm.event_id, newDept);
+                      }}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    >
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Role (Quota Capped) *</label>
+                    <select
+                      value={taskForm.assignment_role}
+                      onChange={(e) => setTaskForm({ ...taskForm, assignment_role: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    >
+                      <option value="Head" disabled={remainingHeads === 0 && taskForm.assignment_role !== 'Head'}>
+                        Head ({remainingHeads} remaining / max 1) {remainingHeads === 0 ? '• Filled' : ''}
+                      </option>
+                      <option value="Sub-head" disabled={remainingSubHeads === 0 && taskForm.assignment_role !== 'Sub-head'}>
+                        Sub-head ({remainingSubHeads} remaining / max 3) {remainingSubHeads === 0 ? '• Filled' : ''}
+                      </option>
+                      <option value="Volunteer">
+                        Volunteer (Flexible / Open)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Live Quota Tracker */}
+                <div className="p-2.5 rounded-xl bg-[#F7F8FC] border border-[#E7E9F1] flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-[#171A2B]">{taskForm.department}:</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${remainingHeads === 0 ? 'bg-[#D9485F]/15 text-[#D9485F]' : 'bg-[#16856B]/15 text-[#16856B]'}`}>
+                      Head: {headAssignedCount}/1 {remainingHeads === 0 ? '(Filled)' : `(${remainingHeads} left)`}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${remainingSubHeads === 0 ? 'bg-[#D9485F]/15 text-[#D9485F]' : 'bg-[#625BF6]/15 text-[#625BF6]'}`}>
+                      Sub-head: {subHeadAssignedCount}/3 {remainingSubHeads === 0 ? '(Filled)' : `(${remainingSubHeads} left)`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-[#171A2B]">Select Volunteer *</label>
+                      <button
+                        type="button"
+                        onClick={() => setCustomNameMode(!customNameMode)}
+                        className="text-[10px] text-[#625BF6] hover:underline font-semibold"
+                      >
+                        {customNameMode ? '← Pick Available' : '+ Custom Name'}
+                      </button>
+                    </div>
+
+                    {customNameMode ? (
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Ananya Roy"
+                        value={taskForm.assignee_name}
+                        onChange={(e) => setTaskForm({ ...taskForm, assignee_name: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                      />
+                    ) : (() => {
+                      const safeVolunteers = Array.isArray(availableVolunteers) ? availableVolunteers.filter(Boolean) : [];
+                      const displayVolunteers = safeVolunteers.filter((v) => v.available || v.name === taskForm.assignee_name);
+                      const availableCount = displayVolunteers.filter((v) => v.available).length;
+
+                      return (
+                        <>
+                          <select
+                            required
+                            value={taskForm.assignee_name}
+                            onChange={(e) => setTaskForm({ ...taskForm, assignee_name: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                          >
+                            <option value="">
+                              {loadingVolunteers
+                                ? 'Loading available volunteers...'
+                                : displayVolunteers.length === 0
+                                ? '-- No available volunteers for this department --'
+                                : `-- Choose Volunteer (${availableCount} available) --`}
+                            </option>
+                            {displayVolunteers.map((vol) => (
+                              <option
+                                key={vol.id || vol.name}
+                                value={vol.name || ''}
+                              >
+                                {vol.name || 'Volunteer'} • Available ({vol.source || 'Active Pool'})
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[10px] text-[#687086] mt-0.5 block">
+                            {availableCount} available volunteers eligible for {taskForm.department}
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Due Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={taskForm.due_date}
+                      onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateTaskModal(false)}
+                    className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionSubmitting}
+                    className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
+                  >
+                    {actionSubmitting ? 'Saving...' : 'Add to Board'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Publish Announcement Modal */}
+        {createAnnouncementModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-[#D9485F]" />
+                  <span>Publish Official Bulletin</span>
+                </h3>
+                <button onClick={() => setCreateAnnouncementModal(false)} className="text-[#687086] hover:text-[#171A2B]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateAnnouncement} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Bulletin Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Schedule Revision for Symposium"
+                    value={announcementForm.title}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Notice Content *</label>
+                  <textarea
+                    rows="3"
+                    required
+                    placeholder="Details of the announcement..."
+                    value={announcementForm.content}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateAnnouncementModal(false)}
+                    className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionSubmitting}
+                    className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
+                  >
+                    {actionSubmitting ? 'Broadcasting...' : 'Publish Bulletin'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Optical QR Scanner Modal */}
+        <QRScannerModal isOpen={scannerOpen} onClose={() => setScannerOpen(false)} />
       </div>
-
-      {/* ================================================================= */}
-      {/* Quick Action Modals                                               */}
-      {/* ================================================================= */}
-
-      {/* 1. Create Event Modal */}
-      {createEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#625BF6]" />
-                <span>Create Official Chapter Event</span>
-              </h3>
-              <button onClick={() => setCreateEventModal(false)} className="text-[#687086] hover:text-[#171A2B]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateEvent} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Event Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. National Hackathon 2026"
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Venue Location *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Campus Auditorium"
-                    value={eventForm.venue}
-                    onChange={(e) => setEventForm({ ...eventForm, venue: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Event Date & Time *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="2026-04-15 10:00"
-                    value={eventForm.event_date}
-                    onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Capacity Cap *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={eventForm.capacity}
-                    onChange={(e) => setEventForm({ ...eventForm, capacity: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Member (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={eventForm.member_price_inr}
-                    onChange={(e) => setEventForm({ ...eventForm, member_price_inr: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Guest (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={eventForm.non_member_price_inr}
-                    onChange={(e) => setEventForm({ ...eventForm, non_member_price_inr: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Estimated Budget (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={eventForm.estimated_budget_inr}
-                    onChange={(e) => setEventForm({ ...eventForm, estimated_budget_inr: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Volunteers Needed</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={eventForm.required_volunteer_count}
-                    onChange={(e) => setEventForm({ ...eventForm, required_volunteer_count: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreateEventModal(false)}
-                  className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionSubmitting}
-                  className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
-                >
-                  {actionSubmitting ? 'Creating...' : 'Publish Event'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Assign Task Modal */}
-      {createTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
-                <Kanban className="w-4 h-4 text-[#C97A16]" />
-                <span>Assign Volunteer Sprint Task</span>
-              </h3>
-              <button onClick={() => setCreateTaskModal(false)} className="text-[#687086] hover:text-[#171A2B]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Task Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Stage Sound & Mic Rigging"
-                  value={taskForm.title}
-                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Associated Event</label>
-                <select
-                  value={taskForm.event_id}
-                  onChange={(e) => setTaskForm({ ...taskForm, event_id: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                >
-                  <option value="">General Club Operations</option>
-                  {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Assignee Name</label>
-                  <input
-                    type="text"
-                    placeholder="Ananya Roy"
-                    value={taskForm.assignee_name}
-                    onChange={(e) => setTaskForm({ ...taskForm, assignee_name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Due Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={taskForm.due_date}
-                    onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={taskForm.is_critical_path}
-                    onChange={(e) => setTaskForm({ ...taskForm, is_critical_path: e.target.checked })}
-                    className="rounded text-[#625BF6]"
-                  />
-                  <span className="font-semibold text-[#171A2B]">Critical Path Task</span>
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreateTaskModal(false)}
-                  className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionSubmitting}
-                  className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
-                >
-                  {actionSubmitting ? 'Saving...' : 'Add to Board'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Add Member Modal */}
-      {createMemberModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
-                <Users className="w-4 h-4 text-[#16856B]" />
-                <span>Register Student Member</span>
-              </h3>
-              <button onClick={() => setCreateMemberModal(false)} className="text-[#687086] hover:text-[#171A2B]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateMember} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Full Student Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={memberForm.full_name}
-                  onChange={(e) => setMemberForm({ ...memberForm, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">University Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="student@clubpulse.edu"
-                    value={memberForm.email}
-                    onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Roll / Student ID *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="STU-2026-089"
-                    value={memberForm.roll_number}
-                    onChange={(e) => setMemberForm({ ...memberForm, roll_number: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Department</label>
-                  <input
-                    type="text"
-                    value={memberForm.department}
-                    onChange={(e) => setMemberForm({ ...memberForm, department: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Annual Dues Paid (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={memberForm.dues_paid_inr}
-                    onChange={(e) => setMemberForm({ ...memberForm, dues_paid_inr: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreateMemberModal(false)}
-                  className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionSubmitting}
-                  className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
-                >
-                  {actionSubmitting ? 'Registering...' : 'Enroll Member'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Publish Announcement Modal */}
-      {createAnnouncementModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
-              <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
-                <Megaphone className="w-4 h-4 text-[#D9485F]" />
-                <span>Publish Official Bulletin</span>
-              </h3>
-              <button onClick={() => setCreateAnnouncementModal(false)} className="text-[#687086] hover:text-[#171A2B]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateAnnouncement} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Bulletin Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Schedule Revision for Symposium"
-                  value={announcementForm.title}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#171A2B] mb-1">Notice Content *</label>
-                <textarea
-                  rows="3"
-                  required
-                  placeholder="Details of the announcement..."
-                  value={announcementForm.content}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Target Audience</label>
-                  <select
-                    value={announcementForm.target_audience}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, target_audience: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  >
-                    <option value="all">All Campus Community</option>
-                    <option value="members_only">Active Members Only</option>
-                    <option value="organizers">Organizers & Executives</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Priority</label>
-                  <select
-                    value={announcementForm.priority}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreateAnnouncementModal(false)}
-                  className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionSubmitting}
-                  className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
-                >
-                  {actionSubmitting ? 'Broadcasting...' : 'Publish Bulletin'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Fast Optical QR Scanner Modal */}
-      <QRScannerModal isOpen={scannerOpen} onClose={() => setScannerOpen(false)} />
     </DashboardLayout>
   );
 };

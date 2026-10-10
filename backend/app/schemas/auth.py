@@ -43,6 +43,8 @@ class UserResponse(BaseModel):
     membership_expiry: Optional[str] = None
     membership_tier: Optional[str] = "annual"
     membership_role: Optional[str] = "participant"  # participant, volunteer
+    is_volunteer: Optional[bool] = False
+    volunteer_events: Optional[list] = []
     created_at: str
 
 class TokenResponse(BaseModel):

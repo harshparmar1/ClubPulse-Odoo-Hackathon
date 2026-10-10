@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, AlertCircle, Info, ShieldAlert, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+import { api } from '../api/client';
+
 export const NotificationDropdown = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -14,14 +16,9 @@ export const NotificationDropdown = () => {
   const fetchNotifications = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unread_count || 0);
-      }
+      const data = await api.get('/api/notifications');
+      setNotifications(data?.notifications || []);
+      setUnreadCount(data?.unread_count || 0);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     }
@@ -35,10 +32,7 @@ export const NotificationDropdown = () => {
 
   const handleMarkAsRead = async (id, targetRoute) => {
     try {
-      await fetch(`/api/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.patch(`/api/notifications/${id}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
@@ -54,10 +48,7 @@ export const NotificationDropdown = () => {
 
   const handleMarkAllRead = async () => {
     try {
-      await fetch('/api/notifications/mark-all-read', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/api/notifications/mark-all-read');
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {

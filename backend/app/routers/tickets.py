@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.ticket import TicketBookRequest, TicketResponse, TicketCheckInRequest, TicketCheckInResponse
 from app.services.ticket_service import TicketService
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_roles
+from app.database.mongodb import get_database
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -32,3 +33,107 @@ def check_in_ticket(
             detail="Access forbidden: requires organizer, admin, treasurer or active volunteer status to check in tickets."
         )
     return TicketService.check_in(data.qr_token, reviewer=current_user)
+
+@router.get("/event/{event_id}/registrations")
+def get_event_registrations(
+    event_id: str,
+    current_user: dict = Depends(require_roles(["admin", "organizer", "treasurer"]))
+):
+    db = get_database()
+    event = db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    cursor = db["tickets"].find({"event_id": event_id}).sort("created_at", -1)
+    
+    total_tickets = 0
+    member_tickets = 0
+    non_member_tickets = 0
+    member_revenue = 0
+    non_member_revenue = 0
+    registrations = []
+
+    for doc in cursor:
+        qty = doc.get("quantity", 1)
+        total_tickets += qty
+        amount = doc.get("total_amount_paise", 0)
+        is_member = bool(doc.get("is_member_discount_applied", False))
+
+        if is_member:
+            member_tickets += qty
+            member_revenue += amount
+        else:
+            non_member_tickets += qty
+            non_member_revenue += amount
+
+        registrations.append({
+            "id": doc["id"],
+            "user_id": doc.get("user_id", ""),
+            "user_name": doc.get("user_name", "Anonymous"),
+            "user_email": doc.get("user_email", ""),
+            "quantity": qty,
+            "total_amount_paise": amount,
+            "is_member": is_member,
+            "role_track": doc.get("role_track", "participant"),
+            "checked_in": doc.get("checked_in", False),
+            "checked_in_at": doc.get("checked_in_at", None),
+            "qr_token": doc.get("qr_token", ""),
+            "created_at": doc.get("created_at", "")
+        })
+
+    return {
+        "event_id": event["id"],
+        "event_title": event.get("title", ""),
+        "event_date": event.get("event_date", ""),
+        "venue": event.get("venue", ""),
+        "capacity": event.get("capacity", 0),
+        "booked_count": event.get("booked_count", 0),
+        "total_tickets": total_tickets,
+        "member_count": member_tickets,
+        "non_member_count": non_member_tickets,
+        "member_revenue_paise": member_revenue,
+        "non_member_revenue_paise": non_member_revenue,
+        "total_revenue_paise": member_revenue + non_member_revenue,
+        "registrations": registrations
+    }
+
+@router.get("/events-summary")
+def get_all_events_registration_summary(
+    current_user: dict = Depends(require_roles(["admin", "organizer", "treasurer"]))
+):
+    db = get_database()
+    events_cursor = db["events"].find({}).sort("created_at", -1)
+    
+    summaries = []
+    for ev in events_cursor:
+        ev_id = ev["id"]
+        tickets_cursor = db["tickets"].find({"event_id": ev_id})
+        
+        member_count = 0
+        non_member_count = 0
+        total_revenue = 0
+
+        for t in tickets_cursor:
+            qty = t.get("quantity", 1)
+            amt = t.get("total_amount_paise", 0)
+            total_revenue += amt
+            if t.get("is_member_discount_applied", False):
+                member_count += qty
+            else:
+                non_member_count += qty
+
+        summaries.append({
+            "event_id": ev_id,
+            "event_title": ev.get("title", ""),
+            "event_date": ev.get("event_date", ""),
+            "venue": ev.get("venue", ""),
+            "capacity": ev.get("capacity", 0),
+            "booked_count": ev.get("booked_count", 0),
+            "member_count": member_count,
+            "non_member_count": non_member_count,
+            "total_tickets": member_count + non_member_count,
+            "total_revenue_paise": total_revenue,
+            "is_published": ev.get("is_published", False)
+        })
+
+    return summaries

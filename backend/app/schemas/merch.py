@@ -9,13 +9,15 @@ class ProductCreate(BaseModel):
     name: str = Field(..., min_length=2)
     description: str
     price_paise: int = Field(..., gt=0)
-    category: str = "Hoodies"  # Hoodies, T-Shirts, Badges, Stickers, Mugs
+    brand: Optional[str] = "Competition Edition"
+    category: str = "Hoodies"  # Hoodies, T-Shirts, Jackets, Stickers
     image_url: Optional[str] = None
     sizes: List[SizeStock]
     sku: str
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
+    brand: Optional[str] = None
     description: Optional[str] = None
     price_paise: Optional[int] = None
     category: Optional[str] = None
@@ -25,6 +27,7 @@ class ProductUpdate(BaseModel):
 class ProductResponse(BaseModel):
     id: str
     name: str
+    brand: Optional[str] = "Competition Edition"
     description: str
     price_paise: int
     category: str
@@ -43,6 +46,9 @@ class OrderItem(BaseModel):
 class OrderCreate(BaseModel):
     items: List[OrderItem]
     delivery_notes: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
 
 class OrderResponse(BaseModel):
     id: str
@@ -54,4 +60,6 @@ class OrderResponse(BaseModel):
     status: str  # placed, processing, fulfilled, cancelled
     payment_status: str  # paid, pending, refunded
     delivery_notes: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
     created_at: str

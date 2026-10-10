@@ -1,21 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, MapPin, Users, Search, Tag, Sparkles, Ticket, ArrowRight } from 'lucide-react';
+import { 
+  Calendar, 
+  MapPin, 
+  Search, 
+  Sparkles, 
+  ArrowRight,
+  Users,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  X
+} from 'lucide-react';
 import { Navbar } from '../components/Navbar';
+import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { EventBookingModal } from '../components/EventBookingModal';
 import { EmptyState } from '../components/EmptyState';
 
 export const EventsPage = () => {
-  const { isMember, role, loading: authLoading } = useAuth();
+  const { user, isMember, role, loading: authLoading, refreshUser } = useAuth();
   const isStaff = ['organizer', 'admin', 'treasurer'].includes(role);
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // Volunteer state
+  const [myVolunteerRequests, setMyVolunteerRequests] = useState([]);
+  const [volunteeringEventId, setVolunteeringEventId] = useState(null);
+  const [volunteerMsg, setVolunteerMsg] = useState('');
+  const [volunteerError, setVolunteerError] = useState('');
 
   if (!authLoading && ['organizer', 'admin', 'treasurer'].includes(role)) {
     return <Navigate to="/organizer/events" replace />;
@@ -32,9 +50,39 @@ export const EventsPage = () => {
     }
   };
 
+  const fetchMyVolunteerRequests = async () => {
+    if (!user) return;
+    try {
+      const data = await api.get('/api/events/my-volunteer-applications');
+      setMyVolunteerRequests(data || []);
+    } catch (err) {
+      console.error('Failed to load volunteer requests:', err);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
-  }, []);
+    fetchMyVolunteerRequests();
+  }, [user]);
+
+  const handleOptToVolunteer = async (evt) => {
+    if (!user) {
+      return;
+    }
+    setVolunteeringEventId(evt.id);
+    setVolunteerMsg('');
+    setVolunteerError('');
+    try {
+      const res = await api.post(`/api/events/${evt.id}/opt-to-volunteer`);
+      setVolunteerMsg(res.message || `Request to volunteer for ${evt.title} sent to Admin!`);
+      await fetchMyVolunteerRequests();
+      if (refreshUser) await refreshUser();
+    } catch (err) {
+      setVolunteerError(err.message || 'Could not submit volunteer application.');
+    } finally {
+      setVolunteeringEventId(null);
+    }
+  };
 
   const tagsList = ['All', 'Hackathon', 'Workshop', 'AI', 'Coding', 'Gala', 'Prizes'];
 
@@ -52,96 +100,123 @@ export const EventsPage = () => {
     return matchesSearch && matchesTag;
   });
 
-  return (
-    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
-      <Navbar />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8 flex-1">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Chapter Calendar 2026</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#171A2B]">
-              Upcoming Organization Events
-            </h1>
-            <p className="text-xs sm:text-sm text-[#687086] mt-1 max-w-xl">
-              Register for hackathons, technical masterclasses, and networking banquets. 
-              Active members automatically unlock preferential seating and ticket discounts.
-            </p>
+  const pageContent = (
+    <div className="space-y-8 w-full">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Chapter Calendar & Passes 2026</span>
           </div>
-
-          {/* Search Box */}
-          <div className="w-full md:w-72 relative">
-            <Search className="w-4 h-4 text-[#687086] absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Search event, topic, venue..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-[#E7E9F1] rounded-xl bg-white text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6] shadow-2xs"
-            />
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#171A2B]">
+            Events & Tickets
+          </h1>
+          <p className="text-xs sm:text-sm text-[#687086] mt-1 max-w-xl">
+            Register for hackathons, technical masterclasses, and networking banquets. 
+            Active members automatically unlock 50% discount and exclusive pass access.
+          </p>
         </div>
 
-        {/* Non-member benefit banner */}
-        {!isMember && !isStaff && (
-          <div className="p-3.5 bg-gradient-to-r from-[#625BF6]/10 to-indigo-50 border border-[#625BF6]/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#171A2B] shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-[#625BF6] shrink-0" />
-              <span>
-                <strong>Chapter Members</strong> get free access to exclusive member workshops and 50% discount on hackathons.
-              </span>
-            </div>
-            <a
-              href="/membership"
-              className="inline-flex items-center gap-1 font-bold text-[#625BF6] hover:text-[#5048E5] transition-colors shrink-0"
+        {/* Search Box */}
+        <div className="w-full md:w-72 relative">
+          <Search className="w-4 h-4 text-[#687086] absolute left-3 top-3" />
+          <input
+            type="text"
+            placeholder="Search event, topic, venue..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs border border-[#E7E9F1] rounded-xl bg-white text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6] shadow-2xs"
+          />
+        </div>
+      </div>
+
+      {/* Non-member benefit banner */}
+      {!isMember && !isStaff && (
+        <div className="p-3.5 bg-gradient-to-r from-[#625BF6]/10 to-indigo-50 border border-[#625BF6]/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#171A2B] shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#625BF6] shrink-0" />
+            <span>
+              <strong>Chapter Members</strong> get free access to exclusive member workshops and 50% discount on hackathons.
+            </span>
+          </div>
+          <Link
+            to="/membership"
+            className="inline-flex items-center gap-1 font-bold text-[#625BF6] hover:text-[#5048E5] transition-colors shrink-0"
+          >
+            <span>Activate Membership</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
+      {/* EVENTS CATALOG: Browse & Reserve Upcoming Events */}
+      <div className="space-y-4">
+      {/* Volunteer Application Feedback Alerts */}
+      {volunteerMsg && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{volunteerMsg}</span>
+          </div>
+          <button onClick={() => setVolunteerMsg('')} className="text-emerald-600 hover:text-emerald-900 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      {volunteerError && (
+        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{volunteerError}</span>
+          </div>
+          <button onClick={() => setVolunteerError('')} className="text-rose-600 hover:text-rose-900 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Category Filters */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {tagsList.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTag(tag)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                selectedTag === tag
+                  ? 'bg-[#625BF6] text-white shadow-2xs'
+                  : 'bg-white text-[#687086] hover:text-[#171A2B] border border-[#E7E9F1]'
+              }`}
             >
-              <span>Unlock Member Benefits</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        )}
-
-        {/* Category Tags & Count */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="text-xs font-semibold text-[#687086]">
-            Showing <span className="font-bold text-[#171A2B]">{filteredEvents.length}</span> published chapter events
-          </div>
-
-          {/* Filter Tags */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {tagsList.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 ${
-                  selectedTag === tag
-                    ? 'bg-[#625BF6] text-white shadow-2xs'
-                    : 'bg-white text-[#687086] border border-[#E7E9F1] hover:bg-[#F7F8FC]'
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+              {tag}
+            </button>
+          ))}
         </div>
 
         {/* Events Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white rounded-2xl h-80 animate-pulse border border-[#E7E9F1]"></div>
+              <div key={n} className="bg-white rounded-2xl h-80 animate-pulse border border-[#E7E9F1]" />
             ))}
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="py-12 bg-white rounded-2xl border border-[#E7E9F1]">
             <EmptyState
-              icon={Ticket}
+              icon={Calendar}
               title="No events match your criteria"
-              description="Try clearing your search query or selecting a different tag."
+              description="Try adjusting your search terms or filter category to discover upcoming gatherings."
+              action={
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setSelectedTag('All');
+                  }}
+                  className="px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-semibold hover:bg-[#5048E5] transition-colors"
+                >
+                  Clear Filters
+                </button>
+              }
             />
           </div>
         ) : (
@@ -151,6 +226,10 @@ export const EventsPage = () => {
               const booked = evt.booked_count || 0;
               const fillPercentage = Math.min(100, Math.round((booked / capacity) * 100));
               const isFull = booked >= capacity;
+
+              const volReq = myVolunteerRequests.find((r) => r.event_id === evt.id);
+              const isVolunteerApproved = volReq?.status === 'approved';
+              const isVolunteerPending = volReq?.status === 'pending';
 
               return (
                 <div
@@ -165,7 +244,15 @@ export const EventsPage = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-3 right-3 flex gap-1.5">
-                      {isFull ? (
+                      {isVolunteerApproved ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
+                          🤝 Approved Volunteer
+                        </span>
+                      ) : isVolunteerPending ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                          ⏳ Pending Approval
+                        </span>
+                      ) : isFull ? (
                         <Badge variant="critical">Sold Out</Badge>
                       ) : (
                         <Badge variant="active">{capacity - booked} Seats Left</Badge>
@@ -221,7 +308,7 @@ export const EventsPage = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <div className="text-[10px] font-medium text-[#687086]">Ticket Price</div>
                           <div className="text-xs font-bold text-[#171A2B]">
@@ -236,13 +323,61 @@ export const EventsPage = () => {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => setSelectedEvent(evt)}
-                          disabled={isFull}
-                          className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors"
-                        >
-                          {isFull ? 'Sold Out' : 'Register Pass'}
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isVolunteerApproved ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Volunteering (Pass Closed)
+                              </span>
+                              <Link
+                                to="/expenses"
+                                className="px-3 py-1.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1"
+                                title="Submit event expenses for reimbursement"
+                              >
+                                <span>Reimbursements</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </Link>
+                            </div>
+                          ) : isVolunteerPending ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" />
+                                Volunteer Pending
+                              </span>
+                              <button
+                                type="button"
+                                disabled
+                                className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-xl text-[11px] font-semibold cursor-not-allowed"
+                                title="Registration disabled while volunteer application is pending"
+                              >
+                                Register Pass
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOptToVolunteer(evt)}
+                                disabled={volunteeringEventId === evt.id}
+                                className="px-3 py-2 bg-[#EEEDFE] hover:bg-[#625BF6] text-[#625BF6] hover:text-white border border-[#D4D1FD] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                title="Opt to volunteer for this event and submit to Admin for approval"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                <span>{volunteeringEventId === evt.id ? 'Sending...' : 'Opt to Volunteer'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedEvent(evt)}
+                                disabled={isFull}
+                                className="px-3.5 py-2 bg-[#625BF6] hover:bg-[#5048E5] disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                              >
+                                {isFull ? 'Sold Out' : 'Register Pass'}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -251,9 +386,9 @@ export const EventsPage = () => {
             })}
           </div>
         )}
-      </main>
+      </div>
 
-      {/* Booking Modal */}
+      {/* Booking Modal (with Razorpay checkout flow) */}
       {selectedEvent && (
         <EventBookingModal
           event={selectedEvent}
@@ -266,4 +401,26 @@ export const EventsPage = () => {
       )}
     </div>
   );
+
+  if (user) {
+    return (
+      <DashboardLayout
+        pageTitle="Events & Tickets"
+        breadcrumbs={[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Events & Tickets' }]}
+      >
+        {pageContent}
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
+      <Navbar />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8 flex-1">
+        {pageContent}
+      </main>
+    </div>
+  );
 };
+
+export default EventsPage;

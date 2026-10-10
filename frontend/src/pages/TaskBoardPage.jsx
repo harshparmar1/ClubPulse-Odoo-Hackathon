@@ -29,16 +29,34 @@ export const TaskBoardPage = () => {
   const [selectedEventFilter, setSelectedEventFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
 
+  const DEPARTMENTS = [
+    'Branding',
+    'Logistics',
+    'Food & Beverages',
+    'Technical',
+    'Public Relations',
+    'Operations',
+    'Decorations & Stage',
+    'Hospitality'
+  ];
+
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+
+  // Available Volunteers state
+  const [availableVolunteers, setAvailableVolunteers] = useState([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+  const [customNameMode, setCustomNameMode] = useState(false);
 
   // Form states
   const [formState, setFormState] = useState({
     title: '',
     description: '',
     event_id: '',
+    department: 'Branding',
+    assignment_role: 'Volunteer',
     assignee_name: '',
     due_date: new Date().toISOString().slice(0, 10),
     priority: 'medium',
@@ -46,6 +64,24 @@ export const TaskBoardPage = () => {
     status: 'todo'
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchAvailableVolunteers = async (eventId, dept) => {
+    try {
+      setLoadingVolunteers(true);
+      const res = await api.get('/api/events/available-volunteers', {
+        params: {
+          event_id: eventId || undefined,
+          department: dept || undefined
+        }
+      });
+      setAvailableVolunteers(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Failed to load available volunteers:', err);
+      setAvailableVolunteers([]);
+    } finally {
+      setLoadingVolunteers(false);
+    }
+  };
 
   const fetchTasksAndEvents = async () => {
     try {
@@ -84,6 +120,8 @@ export const TaskBoardPage = () => {
         title: formState.title,
         description: formState.description || '',
         event_id: formState.event_id || null,
+        department: formState.department || 'Operations',
+        assignment_role: formState.assignment_role || 'Volunteer',
         assignee_name: formState.assignee_name || null,
         assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
         due_date: formState.due_date,
@@ -106,6 +144,8 @@ export const TaskBoardPage = () => {
       title: task.title || '',
       description: task.description || '',
       event_id: task.event_id || '',
+      department: task.department || 'Operations',
+      assignment_role: task.assignment_role || 'Volunteer',
       assignee_name: task.assignee_name || '',
       due_date: task.due_date || new Date().toISOString().slice(0, 10),
       priority: task.priority || 'medium',
@@ -113,6 +153,7 @@ export const TaskBoardPage = () => {
       status: task.status || 'todo'
     });
     setEditModalOpen(true);
+    fetchAvailableVolunteers(task.event_id, task.department);
   };
 
   const handleUpdateTask = async (e) => {
@@ -124,6 +165,8 @@ export const TaskBoardPage = () => {
         title: formState.title,
         description: formState.description,
         event_id: formState.event_id || null,
+        department: formState.department || 'Operations',
+        assignment_role: formState.assignment_role || 'Volunteer',
         assignee_name: formState.assignee_name || null,
         assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
         due_date: formState.due_date,
@@ -139,6 +182,17 @@ export const TaskBoardPage = () => {
       setSubmitting(false);
     }
   };
+
+  // Quota calculation for modal
+  const currentModalDeptTasks = tasks.filter(
+    (t) => (!formState.event_id || t.event_id === formState.event_id) &&
+           (t.department || 'Operations').toLowerCase() === (formState.department || 'Branding').toLowerCase() &&
+           (!editingTask || t.id !== editingTask.id)
+  );
+  const modalHeadsCount = currentModalDeptTasks.filter((t) => t.assignment_role === 'Head').length;
+  const modalSubHeadsCount = currentModalDeptTasks.filter((t) => t.assignment_role === 'Sub-head').length;
+  const modalRemainingHeads = Math.max(0, 1 - modalHeadsCount);
+  const modalRemainingSubHeads = Math.max(0, 3 - modalSubHeadsCount);
 
   // Filter tasks by selected event
   const filteredTasks = tasks.filter((t) => {
@@ -171,10 +225,13 @@ export const TaskBoardPage = () => {
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => {
+                const targetEvent = selectedEventFilter !== 'ALL' ? selectedEventFilter : (events[0]?.id || '');
                 setFormState({
                   title: '',
                   description: '',
-                  event_id: selectedEventFilter !== 'ALL' ? selectedEventFilter : '',
+                  event_id: targetEvent,
+                  department: 'Branding',
+                  assignment_role: 'Volunteer',
                   assignee_name: '',
                   due_date: new Date().toISOString().slice(0, 10),
                   priority: 'medium',
@@ -182,6 +239,7 @@ export const TaskBoardPage = () => {
                   status: 'todo'
                 });
                 setCreateModalOpen(true);
+                fetchAvailableVolunteers(targetEvent, 'Branding');
               }}
               className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors"
             >
@@ -274,11 +332,29 @@ export const TaskBoardPage = () => {
                         </div>
                       </div>
 
-                      {task.is_critical_path && (
-                        <div className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
-                          Critical Path
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {task.department && (
+                          <span className="px-2 py-0.5 rounded text-[9.5px] font-semibold bg-[#F0F2F7] text-[#474D66] border border-[#E7E9F1]">
+                            {task.department}
+                          </span>
+                        )}
+                        {task.assignment_role && (
+                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                            task.assignment_role === 'Head'
+                              ? 'bg-[#625BF6]/15 text-[#625BF6] border border-[#625BF6]/30'
+                              : task.assignment_role === 'Sub-head'
+                              ? 'bg-[#16856B]/15 text-[#16856B] border border-[#16856B]/30'
+                              : 'bg-[#C97A16]/15 text-[#C97A16] border border-[#C97A16]/30'
+                          }`}>
+                            {task.assignment_role}
+                          </span>
+                        )}
+                        {task.is_critical_path && (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
+                            Critical Path
+                          </span>
+                        )}
+                      </div>
 
                       {task.description && (
                         <p className="text-[11px] text-[#687086] line-clamp-2">{task.description}</p>
@@ -343,11 +419,29 @@ export const TaskBoardPage = () => {
                         </div>
                       </div>
 
-                      {task.is_critical_path && (
-                        <div className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
-                          Critical Path
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {task.department && (
+                          <span className="px-2 py-0.5 rounded text-[9.5px] font-semibold bg-[#F0F2F7] text-[#474D66] border border-[#E7E9F1]">
+                            {task.department}
+                          </span>
+                        )}
+                        {task.assignment_role && (
+                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                            task.assignment_role === 'Head'
+                              ? 'bg-[#625BF6]/15 text-[#625BF6] border border-[#625BF6]/30'
+                              : task.assignment_role === 'Sub-head'
+                              ? 'bg-[#16856B]/15 text-[#16856B] border border-[#16856B]/30'
+                              : 'bg-[#C97A16]/15 text-[#C97A16] border border-[#C97A16]/30'
+                          }`}>
+                            {task.assignment_role}
+                          </span>
+                        )}
+                        {task.is_critical_path && (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
+                            Critical Path
+                          </span>
+                        )}
+                      </div>
 
                       {task.description && (
                         <p className="text-[11px] text-[#687086] line-clamp-2">{task.description}</p>
@@ -470,7 +564,11 @@ export const TaskBoardPage = () => {
                   <label className="block font-semibold text-[#171A2B] mb-1">Associated Event</label>
                   <select
                     value={formState.event_id}
-                    onChange={(e) => setFormState({ ...formState, event_id: e.target.value })}
+                    onChange={(e) => {
+                      const newEv = e.target.value;
+                      setFormState({ ...formState, event_id: newEv, assignee_name: '' });
+                      fetchAvailableVolunteers(newEv, formState.department);
+                    }}
                     className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                   >
                     <option value="">General Club Operations</option>
@@ -484,14 +582,117 @@ export const TaskBoardPage = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">Assignee Name</label>
-                    <input
-                      type="text"
-                      placeholder="Ananya Roy"
-                      value={formState.assignee_name}
-                      onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                    <label className="block font-semibold text-[#171A2B] mb-1">Department *</label>
+                    <select
+                      value={formState.department}
+                      onChange={(e) => {
+                        const newDept = e.target.value;
+                        setFormState({ ...formState, department: newDept, assignee_name: '' });
+                        fetchAvailableVolunteers(formState.event_id, newDept);
+                      }}
                       className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
-                    />
+                    >
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Role (Quota Capped) *</label>
+                    <select
+                      value={formState.assignment_role}
+                      onChange={(e) => setFormState({ ...formState, assignment_role: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    >
+                      <option
+                        value="Head"
+                        disabled={modalRemainingHeads === 0 && formState.assignment_role !== 'Head'}
+                      >
+                        Head ({modalRemainingHeads} remaining / max 1) {modalRemainingHeads === 0 ? '• Filled' : ''}
+                      </option>
+                      <option
+                        value="Sub-head"
+                        disabled={modalRemainingSubHeads === 0 && formState.assignment_role !== 'Sub-head'}
+                      >
+                        Sub-head ({modalRemainingSubHeads} remaining / max 3) {modalRemainingSubHeads === 0 ? '• Filled' : ''}
+                      </option>
+                      <option value="Volunteer">
+                        Volunteer (Flexible / Open)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Live Quota Tracker */}
+                <div className="p-2.5 rounded-xl bg-[#F7F8FC] border border-[#E7E9F1] flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-[#171A2B]">{formState.department}:</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${modalRemainingHeads === 0 ? 'bg-[#D9485F]/15 text-[#D9485F]' : 'bg-[#16856B]/15 text-[#16856B]'}`}>
+                      Head: {modalHeadsCount}/1 {modalRemainingHeads === 0 ? '(Filled)' : `(${modalRemainingHeads} left)`}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${modalRemainingSubHeads === 0 ? 'bg-[#D9485F]/15 text-[#D9485F]' : 'bg-[#625BF6]/15 text-[#625BF6]'}`}>
+                      Sub-head: {modalSubHeadsCount}/3 {modalRemainingSubHeads === 0 ? '(Filled)' : `(${modalRemainingSubHeads} left)`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-[#171A2B]">Select Volunteer *</label>
+                      <button
+                        type="button"
+                        onClick={() => setCustomNameMode(!customNameMode)}
+                        className="text-[10px] text-[#625BF6] hover:underline font-semibold"
+                      >
+                        {customNameMode ? '← Pick Available' : '+ Custom Name'}
+                      </button>
+                    </div>
+
+                    {customNameMode ? (
+                      <input
+                        type="text"
+                        placeholder="e.g. Vikram Malhotra"
+                        value={formState.assignee_name}
+                        onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                      />
+                    ) : (() => {
+                      const safeVolunteers = Array.isArray(availableVolunteers) ? availableVolunteers.filter(Boolean) : [];
+                      const displayVolunteers = safeVolunteers.filter((v) => v.available || v.name === formState.assignee_name);
+                      const availableCount = displayVolunteers.filter((v) => v.available).length;
+
+                      return (
+                        <>
+                          <select
+                            value={formState.assignee_name}
+                            onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                          >
+                            <option value="">
+                              {loadingVolunteers
+                                ? 'Loading available volunteers...'
+                                : displayVolunteers.length === 0
+                                ? '-- No available volunteers for this department --'
+                                : `-- Choose Volunteer (${availableCount} available) --`}
+                            </option>
+                            {displayVolunteers.map((vol) => (
+                              <option
+                                key={vol.id || vol.name}
+                                value={vol.name || ''}
+                              >
+                                {vol.name || 'Volunteer'} • Available ({vol.source || 'Active Pool'})
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[10px] text-[#687086] mt-0.5 block">
+                            {availableCount} available volunteers eligible for {formState.department}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="block font-semibold text-[#171A2B] mb-1">Due Date *</label>

@@ -16,55 +16,52 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   FileSpreadsheet,
+  BarChart3,
   AlertOctagon,
   Megaphone
 } from 'lucide-react';
 
 export const Sidebar = () => {
-  const { role, isMember } = useAuth();
+  const { role, isMember, isVolunteer } = useAuth();
   const isOrganizer = ['organizer', 'admin'].includes(role);
+  const isTreasurer = ['treasurer', 'admin'].includes(role);
 
   const studentLinks = [
-    { to: '/dashboard', label: 'My Dashboard', icon: LayoutDashboard },
-    ...(!isOrganizer
+    { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+    ...(!isOrganizer && !isTreasurer
       ? [
           { to: '/my-tickets', label: 'My Tickets & QR', icon: Ticket },
-          { to: '/membership', label: 'Membership Status', icon: CreditCard }
+          { to: '/membership', label: 'Membership Status', icon: CreditCard },
+          { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag }
         ]
       : []),
-    { to: '/my-orders', label: 'My Merch Orders', icon: ShoppingBag },
-    { to: '/my-tasks', label: 'Volunteer Tasks', icon: CheckSquare },
-    { to: '/expenses', label: 'Claim Reimbursement', icon: Receipt }
+    ...(!isTreasurer ? [{ to: '/my-tasks', label: 'Volunteer Tasks', icon: CheckSquare }] : []),
+    ...(!isOrganizer && !isTreasurer && (isVolunteer)
+      ? [{ to: '/expenses', label: 'Claim Reimbursement', icon: Receipt }]
+      : [])
   ];
 
   const organizerLinks = [
     { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard },
-    { to: '/organizer/members', label: 'Member Roster', icon: Users },
     { to: '/organizer/events', label: 'Events & Capacity', icon: Calendar },
-    { to: '/organizer/scanner', label: 'Fast QR Scanner', icon: QrCode },
-    { to: '/organizer/tasks', label: 'Task Board', icon: Kanban },
-    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
-    { to: '/organizer/announcements', label: 'Bulletins', icon: Megaphone || CheckSquare },
-    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
     { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
-    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
+    { to: '/organizer/announcements', label: 'Bulletins', icon: Megaphone || CheckSquare }
   ];
 
   const executiveLinks = [
-    { to: '/ledger', label: 'Financial Ledger', icon: Receipt },
-    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+    { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
     { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+    { to: '/event-analytics', label: 'Event Analytics', icon: BarChart3 }
   ];
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200/80 min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between shrink-0">
       <div className="space-y-6">
-        {/* Student Section */}
+        {/* Overview Section */}
         <div>
           <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Student Space
+            Overview
           </div>
           <nav className="space-y-1">
             {studentLinks.map((item) => {

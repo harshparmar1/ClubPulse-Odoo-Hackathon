@@ -14,6 +14,13 @@ def list_tasks(
 ):
     return TaskService.list_tasks(event_id=event_id, assignee_id=assignee_id)
 
+@router.get("/department-assignments")
+def get_department_assignments(
+    event_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    return TaskService.get_department_assignments(event_id=event_id)
+
 @router.post("", response_model=TaskResponse)
 def create_task(
     data: TaskCreate,

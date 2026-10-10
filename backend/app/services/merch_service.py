@@ -18,6 +18,7 @@ class MerchService:
                 id=doc["id"],
                 name=doc["name"],
                 description=doc["description"],
+                brand=doc.get("brand", "Competition Edition"),
                 price_paise=doc["price_paise"],
                 category=doc.get("category", "General"),
                 image_url=doc.get("image_url"),
@@ -28,6 +29,48 @@ class MerchService:
                 created_at=doc.get("created_at", "")
             ))
         return results
+
+    @staticmethod
+    def update_product(product_id: str, data: ProductUpdate) -> ProductResponse:
+        db = get_database()
+        product = db["products"].find_one({"id": product_id})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found.")
+
+        if hasattr(data, "model_dump"):
+            update_data = data.model_dump(exclude_unset=True)
+        else:
+            update_data = data.dict(exclude_unset=True)
+
+        if "sizes" in update_data and update_data["sizes"] is not None:
+            update_data["sizes"] = [
+                {
+                    "size": s.size if hasattr(s, "size") else s["size"],
+                    "stock": s.stock if hasattr(s, "stock") else s["stock"]
+                }
+                for s in update_data["sizes"]
+            ]
+
+        if update_data:
+            db["products"].update_one({"id": product_id}, {"$set": update_data})
+
+        updated = db["products"].find_one({"id": product_id})
+        sizes = [SizeStock(size=s["size"], stock=s["stock"]) for s in updated.get("sizes", [])]
+        total_stock = sum(s.stock for s in sizes)
+        return ProductResponse(
+            id=updated["id"],
+            name=updated["name"],
+            description=updated["description"],
+            brand=updated.get("brand", "Competition Edition"),
+            price_paise=updated["price_paise"],
+            category=updated.get("category", "General"),
+            image_url=updated.get("image_url"),
+            sizes=sizes,
+            sku=updated["sku"],
+            total_stock=total_stock,
+            is_available=total_stock > 0,
+            created_at=updated.get("created_at", "")
+        )
 
     @staticmethod
     def create_product(data: ProductCreate) -> ProductResponse:
@@ -45,6 +88,7 @@ class MerchService:
         prod_doc = {
             "id": prod_id,
             "name": data.name,
+            "brand": data.brand or "Competition Edition",
             "description": data.description,
             "price_paise": data.price_paise,
             "category": data.category,
@@ -58,6 +102,7 @@ class MerchService:
         return ProductResponse(
             id=prod_id,
             name=data.name,
+            brand=prod_doc["brand"],
             description=data.description,
             price_paise=data.price_paise,
             category=data.category,
@@ -68,6 +113,15 @@ class MerchService:
             is_available=total_stock > 0,
             created_at=now_iso
         )
+
+    @staticmethod
+    def delete_product(product_id: str) -> dict:
+        db = get_database()
+        product = db["products"].find_one({"id": product_id})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found.")
+        db["products"].delete_one({"id": product_id})
+        return {"message": "Product deleted successfully", "id": product_id}
 
     @staticmethod
     def create_order(data: OrderCreate, current_user: dict) -> OrderResponse:
@@ -128,6 +182,9 @@ class MerchService:
             "status": "placed",
             "payment_status": "paid",
             "delivery_notes": data.delivery_notes,
+            "razorpay_order_id": data.razorpay_order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_signature": data.razorpay_signature,
             "created_at": now_iso
         }
         db["orders"].insert_one(order_doc)
@@ -141,6 +198,8 @@ class MerchService:
             "description": f"Merchandise order #{order_id[-6:]} by {current_user['full_name']}",
             "status": "completed",
             "reference_id": order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_order_id": data.razorpay_order_id,
             "created_at": now_iso,
             "created_by": current_user["id"]
         })

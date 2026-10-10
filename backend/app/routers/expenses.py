@@ -19,7 +19,7 @@ def get_my_claims(current_user: dict = Depends(get_current_user)):
 
 @router.get("", response_model=List[ExpenseResponse])
 def list_all_expenses(
-    current_user: dict = Depends(require_roles(["treasurer", "admin"]))
+    current_user: dict = Depends(require_roles(["organizer", "treasurer", "admin"]))
 ):
     return LedgerService.list_expenses()
 
@@ -27,6 +27,6 @@ def list_all_expenses(
 def review_expense(
     expense_id: str,
     data: ExpenseReviewRequest,
-    current_user: dict = Depends(require_roles(["treasurer", "admin"]))
+    current_user: dict = Depends(require_roles(["organizer", "treasurer", "admin"]))
 ):
     return LedgerService.review_expense(expense_id, data, current_user=current_user)

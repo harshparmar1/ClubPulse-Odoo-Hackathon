@@ -30,6 +30,17 @@ class MembershipVerifyRequest(BaseModel):
 class SwitchTrackRequest(BaseModel):
     member_role: str = "participant"  # "participant" or "volunteer"
 
+class TicketOrderRequest(BaseModel):
+    event_id: str
+    quantity: int = Field(default=1, ge=1, le=10)
+    role_track: Optional[str] = "participant"
+
+class MerchOrderPaymentRequest(BaseModel):
+    product_id: str
+    size: str
+    quantity: int = Field(default=1, ge=1, le=10)
+    delivery_notes: Optional[str] = None
+
 @router.get("/config")
 def get_payment_config():
     """Return public Razorpay Key ID for client-side checkout"""
@@ -89,6 +100,160 @@ def create_membership_order(
         }
     except Exception as e:
         logger.error(f"Razorpay order creation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create Razorpay payment order: {str(e)}"
+        )
+
+@router.post("/create-ticket-order")
+def create_ticket_order(
+    data: TicketOrderRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    event = db["events"].find_one({"id": data.event_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    if not event.get("is_published", False):
+        raise HTTPException(status_code=400, detail="Event is not published for booking.")
+
+    if event.get("is_ended", False) or event.get("status") == "ended":
+        raise HTTPException(status_code=400, detail="This event has concluded. Ticket bookings are closed.")
+
+    capacity = event.get("capacity", 100)
+    booked = event.get("booked_count", 0)
+    if booked + data.quantity > capacity:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot book {data.quantity} ticket(s). Only {max(0, capacity - booked)} seats remain."
+        )
+
+    is_member = current_user.get("membership_status") == "active"
+    unit_price = event["member_price_paise"] if is_member else event["non_member_price_paise"]
+    amount_paise = unit_price * data.quantity
+
+    role_track = (data.role_track or "participant").lower()
+    if role_track not in ["participant", "volunteer"]:
+        role_track = "participant"
+
+    if amount_paise == 0:
+        return {
+            "order_id": f"order_free_{uuid.uuid4().hex[:10]}",
+            "amount_paise": 0,
+            "currency": "INR",
+            "is_free": True,
+            "event_title": event["title"],
+            "event_id": event["id"],
+            "quantity": data.quantity,
+            "role_track": role_track,
+            "key_id": settings.RAZORPAY_KEY_ID or "rzp_test_placeholder"
+        }
+
+    try:
+        if razorpay is not None:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            receipt_id = f"rcpt_tkt_{uuid.uuid4().hex[:8]}"
+            order_payload = {
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt_id,
+                "notes": {
+                    "event_id": event["id"],
+                    "event_title": event["title"],
+                    "user_id": current_user["id"],
+                    "quantity": str(data.quantity),
+                    "role_track": role_track
+                }
+            }
+            razorpay_order = client.order.create(data=order_payload)
+            order_id = razorpay_order["id"]
+        else:
+            order_id = f"order_{uuid.uuid4().hex[:14]}"
+
+        return {
+            "order_id": order_id,
+            "amount_paise": amount_paise,
+            "currency": "INR",
+            "is_free": False,
+            "event_title": event["title"],
+            "event_id": event["id"],
+            "quantity": data.quantity,
+            "role_track": role_track,
+            "key_id": settings.RAZORPAY_KEY_ID or "rzp_test_placeholder",
+            "user_name": current_user["full_name"],
+            "user_email": current_user["email"],
+            "user_phone": current_user.get("phone") or "+91 9876543210"
+        }
+    except Exception as e:
+        logger.error(f"Razorpay ticket order creation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create Razorpay ticket payment order: {str(e)}"
+        )
+
+@router.post("/create-merch-order")
+def create_merch_order(
+    data: MerchOrderPaymentRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    product = db["products"].find_one({"id": data.product_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    size_obj = next((s for s in product.get("sizes", []) if s.get("size") == data.size), None)
+    if not size_obj:
+        raise HTTPException(status_code=400, detail=f"Size '{data.size}' not found for product.")
+
+    if size_obj.get("stock", 0) < data.quantity:
+        raise HTTPException(status_code=400, detail=f"Insufficient stock for size '{data.size}'. Only {size_obj.get('stock', 0)} left.")
+
+    is_member = current_user.get("membership_status") == "active"
+    base_unit_price = product.get("price_paise", 49900)
+    # Active members get ₹150 discount per apparel
+    unit_price = max(100, base_unit_price - 15000) if is_member else base_unit_price
+    amount_paise = unit_price * data.quantity
+
+    try:
+        if razorpay is not None:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            receipt_id = f"rcpt_mch_{uuid.uuid4().hex[:8]}"
+            order_payload = {
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt_id,
+                "notes": {
+                    "product_id": product["id"],
+                    "product_name": product["name"],
+                    "size": data.size,
+                    "quantity": str(data.quantity),
+                    "user_id": current_user["id"],
+                    "type": "merchandise"
+                }
+            }
+            razorpay_order = client.order.create(data=order_payload)
+            order_id = razorpay_order["id"]
+        else:
+            order_id = f"order_mch_{uuid.uuid4().hex[:14]}"
+
+        return {
+            "order_id": order_id,
+            "amount_paise": amount_paise,
+            "currency": "INR",
+            "product_id": product["id"],
+            "product_name": product["name"],
+            "size": data.size,
+            "quantity": data.quantity,
+            "unit_price_paise": unit_price,
+            "is_member_discount": is_member,
+            "key_id": settings.RAZORPAY_KEY_ID or "rzp_test_placeholder",
+            "user_name": current_user["full_name"],
+            "user_email": current_user["email"],
+            "user_phone": current_user.get("phone") or "+91 9876543210"
+        }
+    except Exception as e:
+        logger.error(f"Razorpay merch order creation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create Razorpay payment order: {str(e)}"

@@ -10,12 +10,8 @@ class AnnouncementService:
     def list_announcements(current_user: Optional[dict] = None) -> List[AnnouncementResponse]:
         db = get_database()
         
-        # All authenticated users (students, organizers, treasurers, admins) see all published announcements
-        # Unauthenticated guests see announcements targeted to "all"
-        if current_user:
-            query = {"is_published": True}
-        else:
-            query = {"is_published": True, "target_audience": "all"}
+        # All callers across all sides (students, organizers, guests on landing page) see all published announcements
+        query = {"is_published": True}
 
         cursor = db["announcements"].find(query).sort("created_at", -1)
         results = []
@@ -46,19 +42,38 @@ class AnnouncementService:
         if f"({user_role})" not in author_name:
             author_name = f"{author_name} ({user_role})"
 
+        # Announcements created from organizer broadcast to all sides
         doc = {
             "id": ann_id,
             "title": data.title,
             "content": data.content,
-            "target_audience": data.target_audience,
-            "priority": data.priority,
-            "is_published": data.is_published,
+            "target_audience": "all",
+            "priority": data.priority or "normal",
+            "is_published": True,
             "author_id": current_user["id"],
             "author_name": author_name,
             "created_at": now_iso,
             "updated_at": now_iso
         }
         db["announcements"].insert_one(doc)
+
+        # Broadcast in-app notification to all users across all sides
+        try:
+            from app.services.notification_service import create_notification
+            create_notification(
+                title=f"Announcement: {data.title}",
+                message=data.content[:180] + ("..." if len(data.content) > 180 else ""),
+                category="bulletin",
+                severity="high" if data.priority in ["high", "urgent"] else "info",
+                target_roles=["student", "organizer", "treasurer", "admin", "all"],
+                deduplication_key=f"ann_{ann_id}",
+                related_entity_type="announcement",
+                related_entity_id=ann_id,
+                target_route="/dashboard"
+            )
+        except Exception as e:
+            print("Failed to dispatch broadcast notification:", e)
+
         return AnnouncementResponse(**{k: v for k, v in doc.items() if k != "_id"})
 
     @staticmethod

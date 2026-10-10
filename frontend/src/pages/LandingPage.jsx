@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import {
@@ -12,14 +12,24 @@ import {
   Ticket,
   Lock,
   Sparkles,
-  Zap
+  Zap,
+  Megaphone
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { ThreeScene } from '../components/ThreeScene';
+import { AnnouncementSlider } from '../components/AnnouncementSlider';
+import { api } from '../api/client';
 
 export const LandingPage = () => {
   const heroRef = useRef(null);
   const cardsRef = useRef(null);
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    api.get('/api/announcements')
+      .then((data) => setAnnouncements(data || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -94,7 +104,7 @@ export const LandingPage = () => {
 
               <div className="gsap-hero-cta flex flex-wrap items-center gap-3.5 pt-2">
                 <Link
-                  to="/register"
+                  to="/dashboard"
                   className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold text-sm shadow-md shadow-[#625BF6]/25 transition-all"
                 >
                   <span>Launch Student Portal</span>
@@ -158,6 +168,13 @@ export const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Live Campus Bulletins (Flutter style) */}
+      {announcements.length > 0 && (
+        <section className="pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <AnnouncementSlider announcements={announcements} />
+        </section>
+      )}
 
       {/* Signature Differentiators Grid */}
       <section ref={cardsRef} className="py-16 bg-white border-y border-[#E7E9F1]">
@@ -246,7 +263,7 @@ export const LandingPage = () => {
           <div className="flex items-center gap-4 text-[#687086]">
             <Link to="/events" className="hover:text-[#625BF6]">Events</Link>
             <Link to="/merch" className="hover:text-[#625BF6]">Merchandise</Link>
-            <Link to="/login" className="hover:text-[#625BF6]">Demo Sign-In</Link>
+            <Link to="/login" className="hover:text-[#625BF6]">Sign In</Link>
           </div>
         </div>
       </footer>

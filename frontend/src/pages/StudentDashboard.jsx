@@ -37,6 +37,7 @@ import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { RiskAlert } from '../components/RiskAlert';
 import { AnnouncementSlider } from '../components/AnnouncementSlider';
+import { EventBookingModal } from '../components/EventBookingModal';
 
 export const StudentDashboard = () => {
   const { user, role, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
@@ -51,6 +52,7 @@ export const StudentDashboard = () => {
   const [riskData, setRiskData] = useState(null);
   const [allMembers, setAllMembers] = useState([]);
   const [activeModalTicket, setActiveModalTicket] = useState(null);
+  const [selectedBookingEvent, setSelectedBookingEvent] = useState(null);
   const [taskUpdatingId, setTaskUpdatingId] = useState(null);
 
   const isOrganizer = ['organizer', 'admin'].includes(role);
@@ -131,17 +133,9 @@ export const StudentDashboard = () => {
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* ---------------------------------------------------- */}
-        {/* 0. Top Back Button Navigation Bar                    */}
+        {/* 0. Top Navigation Status                             */}
         {/* ---------------------------------------------------- */}
-        <div className="flex items-center justify-between">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#EEEDFE] text-[#171A2B] hover:text-[#625BF6] text-xs font-bold border border-[#E7E9F1] shadow-2xs hover:border-[#625BF6]/40 transition-all group cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#625BF6] group-hover:-translate-x-1 transition-transform" />
-            <span>← Back to Home Page</span>
-          </Link>
-
+        <div className="flex items-center justify-end">
           <div className="hidden sm:flex items-center gap-2 text-xs text-[#687086]">
             <span>Skyline Campus Platform</span>
             <span>•</span>
@@ -216,14 +210,16 @@ export const StudentDashboard = () => {
                   <span>Unlock Member Perks</span>
                 </Link>
               )}
-              <Link
-                to="/expenses"
-                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-[#F7F8FC] text-[#171A2B] text-xs font-semibold border border-[#E7E9F1] transition-colors"
-                title="Submit or track reimbursement claims"
-              >
-                <Receipt className="w-4 h-4 text-[#687086]" />
-                <span className="hidden sm:inline">Claim Expense</span>
-              </Link>
+              {(isVolunteer || isOrganizer || isTreasurer) && (
+                <Link
+                  to="/expenses"
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-[#F7F8FC] text-[#171A2B] text-xs font-semibold border border-[#E7E9F1] transition-colors"
+                  title="Submit or track reimbursement claims"
+                >
+                  <Receipt className="w-4 h-4 text-[#687086]" />
+                  <span className="hidden sm:inline">Claim Expense</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -338,28 +334,41 @@ export const StudentDashboard = () => {
               </>
             )}
 
-            <StatCard
-              title="Volunteer Tasks"
-              value={`${myTasks.filter((t) => t.status !== 'done').length} Pending`}
-              subtitle={`${myTasks.filter((t) => t.status === 'done').length} completed milestones`}
-              icon={CheckSquare}
-              color="teal"
-              badge={
-                myTasks.some((t) => t.priority === 'urgent' && t.status !== 'done') && (
-                  <StatusBadge variant="critical">Urgent Task</StatusBadge>
-                )
-              }
-              onClick={() => navigate('/my-tasks')}
-            />
+            {(isVolunteer || isOrganizer || isTreasurer) && (
+              <>
+                <StatCard
+                  title="Volunteer Tasks"
+                  value={`${myTasks.filter((t) => t.status !== 'done').length} Pending`}
+                  subtitle={`${myTasks.filter((t) => t.status === 'done').length} completed milestones`}
+                  icon={CheckSquare}
+                  color="teal"
+                  badge={
+                    myTasks.some((t) => t.priority === 'urgent' && t.status !== 'done') ? (
+                      <StatusBadge variant="critical">Urgent Task</StatusBadge>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Crew Active
+                      </span>
+                    )
+                  }
+                  onClick={() => navigate('/my-tasks')}
+                />
 
-            <StatCard
-              title="Reimbursements"
-              value="Expense Hub"
-              subtitle="Track payouts and receipts"
-              icon={Receipt}
-              color="slate"
-              onClick={() => navigate('/expenses')}
-            />
+                <StatCard
+                  title="Reimbursements"
+                  value="Expense Claims"
+                  subtitle="Submit and track receipts"
+                  icon={Receipt}
+                  color="indigo"
+                  badge={
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Volunteer Hub
+                    </span>
+                  }
+                  onClick={() => navigate('/expenses')}
+                />
+              </>
+            )}
           </div>
         )}
 
@@ -568,20 +577,24 @@ export const StudentDashboard = () => {
                         Reserve tickets for upcoming tech hackathons, workshops, and student networking galas.
                       </p>
                     </div>
-                    <Link
-                      to="/events"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById('upcoming-events-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs cursor-pointer"
                     >
                       <span>Browse Campus Events</span>
                       <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                    </button>
                   </div>
                 )}
               </div>
             )}
 
             {/* B. Upcoming Chapter Events */}
-            <div className="space-y-4">
+            <div id="upcoming-events-section" className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-extrabold text-[#171A2B] tracking-tight">
@@ -591,17 +604,10 @@ export const StudentDashboard = () => {
                     Save up to 50% with verified club member pricing
                   </p>
                 </div>
-                <Link
-                  to="/events"
-                  className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
-                >
-                  <span>All Events</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {events.slice(0, 4).map((evt) => {
+                {events.map((evt) => {
                   const capacity = evt.capacity || 100;
                   const booked = evt.booked_count || 0;
                   const fillPct = Math.min(100, Math.round((booked / capacity) * 100));
@@ -659,12 +665,14 @@ export const StudentDashboard = () => {
                                 )}
                               </div>
                             </div>
-                            <Link
-                              to="/events"
-                              className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] text-[#625BF6] rounded-xl text-xs font-bold transition-colors"
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingEvent(evt)}
+                              disabled={booked >= capacity}
+                              className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] disabled:opacity-40 text-[#625BF6] rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
-                              Reserve Pass
-                            </Link>
+                              {booked >= capacity ? 'Sold Out' : 'Reserve Pass'}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1099,6 +1107,16 @@ export const StudentDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Event Booking Modal directly on the same page */}
+      <EventBookingModal
+        isOpen={Boolean(selectedBookingEvent)}
+        event={selectedBookingEvent}
+        onClose={() => setSelectedBookingEvent(null)}
+        onBookSuccess={() => {
+          fetchDashboard();
+        }}
+      />
     </DashboardLayout>
   );
 };

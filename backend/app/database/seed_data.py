@@ -279,51 +279,88 @@ def seed_database(force: bool = False):
     ]
     db["tickets"].insert_many(tickets)
 
-    # 5. MERCHANDISE
+    # 5. MERCHANDISE (Official Chapter Apparel & Collectibles)
     products = [
         {
-            "id": "prd_hoodie01",
-            "name": "ClubPulse Official Heavyweight Hoodie",
-            "description": "380 GSM fleece organic cotton hoodie with embroidered chest emblem and brushed metal aglets. Custom club edition.",
-            "price_paise": 99900,  # ₹999
-            "category": "Hoodies",
-            "image_url": "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=600&q=80",
-            "sizes": [
-                {"size": "S", "stock": 4},
-                {"size": "M", "stock": 18},
-                {"size": "L", "stock": 12},
-                {"size": "XL", "stock": 1}  # Low stock trigger for risk engine!
-            ],
-            "sku": "CP-HD-BLK-26",
-            "created_at": now_iso
-        },
-        {
-            "id": "prd_tee01",
-            "name": "HackPulse Tech Conference Tee",
-            "description": "100% combed ringspun cotton t-shirt featuring bespoke circuit line typography. Pre-shrunk durable wash.",
-            "price_paise": 44900,  # ₹449
+            "id": "prd_white_tee",
+            "name": "Classic Regular Fit White T-Shirt",
+            "brand": "ClubPulse Apparel",
+            "description": "100% premium combed cotton classic white crewneck tee. Breathable, durable, and tailored for comfort.",
+            "price_paise": 49900,  # ₹499
             "category": "T-Shirts",
-            "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80",
+            "image_url": "/merch/white-tee.jpg",
             "sizes": [
                 {"size": "S", "stock": 15},
                 {"size": "M", "stock": 25},
-                {"size": "L", "stock": 30},
+                {"size": "L", "stock": 20},
                 {"size": "XL", "stock": 10}
             ],
-            "sku": "CP-TEE-NVY-26",
+            "sku": "CP-TEE-WHT-01",
             "created_at": now_iso
         },
         {
-            "id": "prd_stickerpack",
-            "name": "Dev & Organization Vinyl Sticker Pack",
-            "description": "Set of 8 waterproof die-cut vinyl stickers for laptops, bottles, and workstations.",
-            "price_paise": 9900,   # ₹99
-            "category": "Stickers",
-            "image_url": "https://images.unsplash.com/photo-1589384267710-7a25bf153177?auto=format&fit=crop&w=600&q=80",
+            "id": "prd_black_hoodie",
+            "name": "Oversized Heavyweight Black Hoodie",
+            "brand": "ClubPulse Originals",
+            "description": "380 GSM heavyweight cotton fleece relaxed fit black hoodie with front kangaroo pocket and double-lined hood.",
+            "price_paise": 99900,  # ₹999
+            "category": "Hoodies",
+            "image_url": "/merch/black-hoodie.jpg",
             "sizes": [
-                {"size": "Standard", "stock": 75}
+                {"size": "S", "stock": 10},
+                {"size": "M", "stock": 30},
+                {"size": "L", "stock": 20},
+                {"size": "XL", "stock": 8}
             ],
-            "sku": "CP-STK-PK8",
+            "sku": "CP-HD-BLK-02",
+            "created_at": now_iso
+        },
+        {
+            "id": "prd_black_tee",
+            "name": "Classic Regular Fit Black T-Shirt",
+            "brand": "ClubPulse Apparel",
+            "description": "Ultra-soft bio-washed ribbed black cotton t-shirt with classic crew neckline and minimal club styling.",
+            "price_paise": 49900,  # ₹499
+            "category": "T-Shirts",
+            "image_url": "/merch/black-tee.jpg",
+            "sizes": [
+                {"size": "S", "stock": 18},
+                {"size": "M", "stock": 28},
+                {"size": "L", "stock": 22},
+                {"size": "XL", "stock": 12}
+            ],
+            "sku": "CP-TEE-BLK-03",
+            "created_at": now_iso
+        },
+        {
+            "id": "prd_basketball_badge",
+            "name": "Match Day Basketball Enamel Button Badge",
+            "brand": "ClubPulse Sports",
+            "description": "High-grade 58mm glossy metallic tournament collectible pin badge featuring the Club Match Day basketball crest.",
+            "price_paise": 9900,  # ₹99
+            "category": "Badges",
+            "image_url": "/merch/badge.jpg",
+            "sizes": [
+                {"size": "Standard", "stock": 50}
+            ],
+            "sku": "CP-BDG-BSK-04",
+            "created_at": now_iso
+        },
+        {
+            "id": "prd_cream_hoodie",
+            "name": "Minimalist Cream Fleece Pullover Hoodie",
+            "brand": "ClubPulse Originals",
+            "description": "Clean ecru cream brushed fleece pullover hoodie with tonal drawstrings and kangaroo pocket.",
+            "price_paise": 99900,  # ₹999
+            "category": "Hoodies",
+            "image_url": "/merch/cream-hoodie.jpg",
+            "sizes": [
+                {"size": "S", "stock": 12},
+                {"size": "M", "stock": 24},
+                {"size": "L", "stock": 18},
+                {"size": "XL", "stock": 6}
+            ],
+            "sku": "CP-HD-CRM-05",
             "created_at": now_iso
         }
     ]

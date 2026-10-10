@@ -240,43 +240,224 @@ class SimulatorService:
             )
 
         now_iso = datetime.utcnow().isoformat()
+        update_doc = {
+            "capacity": data.capacity,
+            "member_price_paise": data.member_price_paise,
+            "non_member_price_paise": data.non_member_price_paise,
+            "estimated_budget_paise": data.estimated_budget_paise,
+            "updated_at": now_iso,
+            "updated_by": current_user["id"]
+        }
+        if data.expense_categories is not None:
+            update_doc["expense_categories"] = data.expense_categories
+
         db["events"].update_one(
             {"id": data.event_id},
-            {
-                "$set": {
-                    "capacity": data.capacity,
-                    "member_price_paise": data.member_price_paise,
-                    "non_member_price_paise": data.non_member_price_paise,
-                    "estimated_budget_paise": data.estimated_budget_paise,
-                    "updated_at": now_iso,
-                    "updated_by": current_user["id"]
-                }
-            }
+            {"$set": update_doc}
         )
 
+        # Publish meaningful committed allocation entries directly to Treasury Ledger (transactions collection)
+        import uuid
+        db["transactions"].delete_many({
+            "event_id": data.event_id,
+            "reference_id": {"$regex": r"^sim_"}
+        })
+
+        committed_count = 0
+        if data.expense_categories:
+            for idx, cat in enumerate(data.expense_categories):
+                cat_name = cat.get("name", "Miscellaneous")
+                amount_inr = float(cat.get("amount", 0) or 0)
+                cat_paise = int(round(amount_inr * 100))
+                if cat_paise > 0:
+                    cat_slug = cat_name.lower().replace(" ", "_").replace("&", "and")
+                    txn_id = f"txn_{uuid.uuid4().hex[:10]}"
+                    db["transactions"].insert_one({
+                        "id": txn_id,
+                        "amount_paise": cat_paise,
+                        "transaction_type": "expense",
+                        "category": cat_slug,
+                        "description": f"Allocated Budget ({cat_name}) for '{event.get('title')}'",
+                        "status": "committed",
+                        "reference_id": f"sim_{data.event_id}_{cat_slug}_{idx}",
+                        "event_id": data.event_id,
+                        "created_at": now_iso,
+                        "created_by": current_user.get("id")
+                    })
+                    committed_count += 1
+
+        if committed_count == 0 and data.estimated_budget_paise > 0:
+            txn_id = f"txn_{uuid.uuid4().hex[:10]}"
+            db["transactions"].insert_one({
+                "id": txn_id,
+                "amount_paise": data.estimated_budget_paise,
+                "transaction_type": "expense",
+                "category": "budget_allocation",
+                "description": f"Published Budget Allocation for '{event.get('title')}'",
+                "status": "committed",
+                "reference_id": f"sim_{data.event_id}_total",
+                "event_id": data.event_id,
+                "created_at": now_iso,
+                "created_by": current_user.get("id")
+            })
+
+        return {
+            "success": True,
+            "message": f"Successfully published budget and categorized allocations for '{event['title']}' to Treasury Ledger.",
+            "event_id": data.event_id,
+            "updated_at": now_iso
+        }
+
+    @staticmethod
+    def create_budget_request(data: Any, current_user: dict) -> dict:
+        import uuid
+        from app.services.notification_service import create_notification
+        db = get_database()
+        event = db["events"].find_one({"id": data.event_id})
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found.")
+
+        now_iso = datetime.utcnow().isoformat()
+        req_id = f"breq_{uuid.uuid4().hex[:10]}"
+
+        req_doc = {
+            "id": req_id,
+            "event_id": data.event_id,
+            "event_title": event.get("title", "Event"),
+            "request_type": data.request_type,  # budget | volunteers | other
+            "current_budget_paise": data.current_budget_paise,
+            "requested_budget_paise": data.requested_budget_paise,
+            "requested_volunteers": data.requested_volunteers,
+            "operational_category": data.operational_category,
+            "percentage_increase": data.percentage_increase,
+            "message": data.message,
+            "notes": data.notes,
+            "status": "pending",  # pending | approved | declined
+            "requested_by_id": current_user.get("id"),
+            "requested_by_email": current_user.get("email", "treasurer@clubpulse.edu"),
+            "requested_by_name": current_user.get("full_name") or current_user.get("email"),
+            "created_at": now_iso,
+            "updated_at": now_iso
+        }
+
+        db["budget_requests"].insert_one(req_doc)
+
+        # Notify Organizers and Admins
         try:
-            from app.services.audit_service import record_audit_log
-            record_audit_log(
-                user_email=current_user.get("email", "unknown"),
-                user_role=current_user.get("role", "organizer"),
-                action="APPLY_SIMULATION",
-                entity_type="event",
-                entity_id=data.event_id,
-                summary=f"Applied simulated scenario to event '{event.get('title')}' (capacity={data.capacity}, budget=₹{data.estimated_budget_paise/100:.0f})",
-                payload={
-                    "capacity": data.capacity,
-                    "member_price_paise": data.member_price_paise,
-                    "non_member_price_paise": data.non_member_price_paise,
-                    "estimated_budget_paise": data.estimated_budget_paise
-                }
+            notif_msg = f"{current_user.get('email')} submitted a {data.request_type} request for '{event.get('title')}': {data.message}"
+            create_notification(
+                title=f"Treasurer Request: {event.get('title')}",
+                message=notif_msg,
+                category="financial_alert",
+                severity="warning",
+                target_roles=["organizer", "admin"],
+                deduplication_key=f"breq_notif_{req_id}",
+                related_entity_type="event",
+                related_entity_id=data.event_id,
+                target_route="/simulator"
             )
         except Exception:
             pass
 
         return {
             "success": True,
-            "message": f"Successfully updated live event parameters for '{event['title']}' based on verified simulation.",
-            "event_id": data.event_id,
-            "updated_at": now_iso
+            "message": "Request submitted successfully to Organizers.",
+            "request": {k: v for k, v in req_doc.items() if k != "_id"}
         }
+
+    @staticmethod
+    def get_budget_requests(event_id: Optional[str] = None, status: Optional[str] = None) -> List[dict]:
+        db = get_database()
+        query = {}
+        if event_id:
+            query["event_id"] = event_id
+        if status:
+            query["status"] = status
+        
+        cursor = db["budget_requests"].find(query).sort("created_at", -1)
+        results = []
+        for doc in cursor:
+            doc_data = {k: v for k, v in doc.items() if k != "_id"}
+            results.append(doc_data)
+        return results
+
+    @staticmethod
+    def update_budget_request_status(req_id: str, status: str, current_user: dict) -> dict:
+        from app.services.notification_service import create_notification
+        if status not in ["approved", "declined"]:
+            raise HTTPException(status_code=400, detail="Status must be 'approved' or 'declined'.")
+
+        db = get_database()
+        req = db["budget_requests"].find_one({"id": req_id})
+        if not req:
+            raise HTTPException(status_code=404, detail="Budget request not found.")
+
+        now_iso = datetime.utcnow().isoformat()
+        db["budget_requests"].update_one(
+            {"id": req_id},
+            {
+                "$set": {
+                    "status": status,
+                    "resolved_by": current_user.get("email"),
+                    "resolved_at": now_iso,
+                    "updated_at": now_iso
+                }
+            }
+        )
+
+        event_title = req.get("event_title", "Event")
+        event_id = req.get("event_id")
+
+        # If approved, mutate the event parameters
+        if status == "approved" and event_id:
+            event = db["events"].find_one({"id": event_id})
+            if event:
+                event_updates = {"updated_at": now_iso}
+                if req.get("request_type") == "budget" and req.get("requested_budget_paise"):
+                    event_updates["estimated_budget_paise"] = req["requested_budget_paise"]
+                elif req.get("request_type") == "volunteers" and req.get("requested_volunteers"):
+                    current_vols = int(event.get("required_volunteer_count", 0))
+                    event_updates["required_volunteer_count"] = current_vols + int(req["requested_volunteers"])
+                
+                db["events"].update_one({"id": event_id}, {"$set": event_updates})
+
+        # Notify Treasurer and Admin
+        try:
+            status_word = "Approved" if status == "approved" else "Declined"
+            create_notification(
+                title=f"Request {status_word}: {event_title}",
+                message=f"Your {req.get('request_type')} request for '{event_title}' was {status} by organizer {current_user.get('email')}.",
+                category="financial_alert",
+                severity="info" if status == "approved" else "warning",
+                target_roles=["treasurer", "admin"],
+                deduplication_key=f"breq_status_{req_id}_{status}",
+                related_entity_type="event",
+                related_entity_id=event_id,
+                target_route="/simulator"
+            )
+        except Exception:
+            pass
+
+        # Record audit log
+        try:
+            from app.services.audit_service import record_audit_log
+            record_audit_log(
+                user_email=current_user.get("email", "unknown"),
+                user_role=current_user.get("role", "organizer"),
+                action=f"BUDGET_REQUEST_{status.upper()}",
+                entity_type="budget_request",
+                entity_id=req_id,
+                summary=f"{status.capitalize()} {req.get('request_type')} request for event '{event_title}'",
+                payload={"request_id": req_id, "status": status, "event_id": event_id}
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "message": f"Request has been marked as {status}.",
+            "request_id": req_id,
+            "status": status
+        }
+
 

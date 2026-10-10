@@ -44,3 +44,16 @@ class ApplySimulationRequest(BaseModel):
     member_price_paise: int
     non_member_price_paise: int
     estimated_budget_paise: int
+    expense_categories: Optional[List[Dict[str, Any]]] = None
+
+class BudgetIncreaseRequest(BaseModel):
+    event_id: str
+    request_type: str = "budget"  # budget | volunteers | other
+    current_budget_paise: int = 0
+    requested_budget_paise: Optional[int] = None
+    requested_volunteers: Optional[int] = None
+    operational_category: Optional[str] = None
+    percentage_increase: Optional[float] = None
+    message: str
+    notes: Optional[str] = None
+

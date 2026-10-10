@@ -13,7 +13,7 @@ from app.routers import (
     products, orders, announcements, tasks,
     transactions, expenses, risk, simulator, reports,
     readiness, correlation, actions, notifications, audit,
-    payments
+    payments, volunteer
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +60,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(members.router)
+app.include_router(volunteer.router)
 app.include_router(events.router)
 app.include_router(tickets.router)
 app.include_router(products.router)

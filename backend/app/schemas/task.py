@@ -5,6 +5,8 @@ class TaskCreate(BaseModel):
     title: str = Field(..., min_length=3)
     description: Optional[str] = ""
     event_id: Optional[str] = None
+    department: Optional[str] = "Operations"
+    assignment_role: Optional[str] = "Volunteer"  # Head, Sub-head, Volunteer
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
     due_date: str  # YYYY-MM-DD
@@ -15,6 +17,8 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    department: Optional[str] = None
+    assignment_role: Optional[str] = None
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
     due_date: Optional[str] = None
@@ -28,6 +32,8 @@ class TaskResponse(BaseModel):
     description: str
     event_id: Optional[str] = None
     event_title: Optional[str] = None
+    department: Optional[str] = "Operations"
+    assignment_role: Optional[str] = "Volunteer"
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
     due_date: str

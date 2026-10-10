@@ -6,6 +6,9 @@ class TicketBookRequest(BaseModel):
     quantity: int = Field(default=1, ge=1, le=10)
     attendee_names: Optional[List[str]] = None
     role_track: Optional[str] = "participant"
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
 
 class TicketResponse(BaseModel):
     id: str
@@ -21,6 +24,9 @@ class TicketResponse(BaseModel):
     is_member_discount_applied: bool
     role_track: Optional[str] = "participant"
     qr_token: str
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
     checked_in: bool
     checked_in_at: Optional[str] = None
     created_at: str

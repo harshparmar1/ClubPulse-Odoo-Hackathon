@@ -24,6 +24,18 @@ class TicketService:
         unit_price = event["member_price_paise"] if is_member else event["non_member_price_paise"]
         total_amount = unit_price * data.quantity
 
+        # Prevent approved volunteers for this event from registering as participants
+        vol_req = db["volunteer_requests"].find_one({
+            "event_id": data.event_id,
+            "user_id": current_user["id"],
+            "status": "approved"
+        })
+        if vol_req:
+            raise HTTPException(
+                status_code=400,
+                detail="You are already an approved volunteer for this event. Attendee pass registration is closed for volunteers."
+            )
+
         # Atomic capacity lock
         # Update booked_count ONLY IF current booked_count + quantity <= capacity
         update_result = db["events"].update_one(
@@ -80,6 +92,9 @@ class TicketService:
             "is_member_discount_applied": is_member,
             "role_track": role_track,
             "qr_token": qr_token,
+            "razorpay_order_id": data.razorpay_order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_signature": data.razorpay_signature,
             "checked_in": False,
             "checked_in_at": None,
             "created_at": now_iso
@@ -97,6 +112,8 @@ class TicketService:
                 "status": "completed",
                 "reference_id": ticket_id,
                 "event_id": event["id"],
+                "razorpay_payment_id": data.razorpay_payment_id,
+                "razorpay_order_id": data.razorpay_order_id,
                 "created_at": now_iso,
                 "created_by": current_user["id"]
             })
@@ -123,6 +140,9 @@ class TicketService:
                 is_member_discount_applied=doc.get("is_member_discount_applied", False),
                 role_track=doc.get("role_track", "participant"),
                 qr_token=doc["qr_token"],
+                razorpay_order_id=doc.get("razorpay_order_id"),
+                razorpay_payment_id=doc.get("razorpay_payment_id"),
+                razorpay_signature=doc.get("razorpay_signature"),
                 checked_in=doc.get("checked_in", False),
                 checked_in_at=doc.get("checked_in_at"),
                 created_at=doc.get("created_at", "")

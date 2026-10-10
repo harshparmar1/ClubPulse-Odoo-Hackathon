@@ -14,7 +14,11 @@ import {
   Box,
   Kanban,
   User,
-  MessageSquare
+  MessageSquare,
+  Users,
+  Check,
+  X,
+  Sparkles
 } from 'lucide-react';
 import { Badge } from '../components/Badge';
 
@@ -32,9 +36,71 @@ export const ActionCenterPage = () => {
   const [actionStatus, setActionStatus] = useState('resolved');
   const [updating, setUpdating] = useState(false);
 
+  // Volunteer Applications state
+  const [volunteerApps, setVolunteerApps] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [appActionId, setAppActionId] = useState(null);
+  const [appFeedbackMsg, setAppFeedbackMsg] = useState('');
+
   useEffect(() => {
     fetchActionItems();
+    fetchVolunteerApps();
   }, [token]);
+
+  const fetchVolunteerApps = async () => {
+    if (!token) return;
+    try {
+      setLoadingApps(true);
+      const res = await fetch('/api/events/volunteer-applications', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVolunteerApps(data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load volunteer applications:', err);
+    } finally {
+      setLoadingApps(false);
+    }
+  };
+
+  const handleApproveVolunteer = async (appId) => {
+    try {
+      setAppActionId(appId);
+      const res = await fetch(`/api/events/volunteer-applications/${appId}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAppFeedbackMsg(data.message || 'Volunteer approved successfully!');
+        fetchVolunteerApps();
+      }
+    } catch (err) {
+      console.error('Failed to approve volunteer:', err);
+    } finally {
+      setAppActionId(null);
+    }
+  };
+
+  const handleRejectVolunteer = async (appId) => {
+    try {
+      setAppActionId(appId);
+      const res = await fetch(`/api/events/volunteer-applications/${appId}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setAppFeedbackMsg('Volunteer application rejected.');
+        fetchVolunteerApps();
+      }
+    } catch (err) {
+      console.error('Failed to reject volunteer:', err);
+    } finally {
+      setAppActionId(null);
+    }
+  };
 
   const fetchActionItems = async () => {
     try {
@@ -191,6 +257,142 @@ export const ActionCenterPage = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Volunteer Applications Approval Queue */}
+        <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-[#171A2B]">
+                    Volunteer Crew Applications
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#EEEDFE] text-[#625BF6] border border-[#625BF6]/30">
+                    {volunteerApps.filter((a) => a.status === 'pending').length} Pending
+                  </span>
+                </div>
+                <p className="text-xs text-[#687086]">
+                  Review students requesting to volunteer for upcoming events. Approving an applicant activates their volunteer privileges (such as Reimbursements) and stops attendee ticket registration for that event.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={fetchVolunteerApps}
+              className="self-start sm:self-auto px-3 py-1.5 rounded-xl border border-[#E7E9F1] text-xs font-semibold text-[#171A2B] hover:bg-[#F7F8FC] transition-colors cursor-pointer"
+            >
+              Refresh Applications
+            </button>
+          </div>
+
+          {appFeedbackMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{appFeedbackMsg}</span>
+              </div>
+              <button onClick={() => setAppFeedbackMsg('')} className="text-emerald-600 hover:text-emerald-900 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {loadingApps ? (
+            <div className="py-6 text-center text-xs text-[#687086] animate-pulse">
+              Loading volunteer applications...
+            </div>
+          ) : volunteerApps.length === 0 ? (
+            <div className="py-6 text-center rounded-xl bg-[#F7F8FC] border border-[#E7E9F1] text-xs text-[#687086]">
+              No volunteer applications submitted yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E7E9F1] border border-[#E7E9F1] rounded-xl overflow-hidden">
+              {volunteerApps.map((app) => (
+                <div
+                  key={app.id}
+                  className="p-4 bg-white hover:bg-[#F7F8FC] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-[#171A2B]">
+                        {app.user_name}
+                      </span>
+                      <span className="text-xs text-[#687086]">
+                        ({app.user_email})
+                      </span>
+                      {app.status === 'pending' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          Pending Approval
+                        </span>
+                      ) : app.status === 'approved' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Approved Volunteer
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                          Rejected
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-[#687086] flex items-center gap-3">
+                      <span>
+                        Target Event: <strong className="text-[#171A2B]">{app.event_title}</strong>
+                      </span>
+                      {app.event_date && (
+                        <span>• Date: {app.event_date}</span>
+                      )}
+                      {app.venue && (
+                        <span>• Venue: {app.venue}</span>
+                      )}
+                    </div>
+
+                    {app.reviewed_by && (
+                      <div className="text-[11px] text-[#8B93A7]">
+                        Reviewed by: {app.reviewed_by}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {app.status === 'pending' ? (
+                      <>
+                        <button
+                          onClick={() => handleApproveVolunteer(app.id)}
+                          disabled={appActionId === app.id}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{appActionId === app.id ? 'Approving...' : 'Approve Volunteer'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectVolunteer(app.id)}
+                          disabled={appActionId === app.id}
+                          className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition-all cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Reject</span>
+                        </button>
+                      </>
+                    ) : app.status === 'approved' ? (
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Official Crew Member
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500 italic">
+                        Application Rejected
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Filter Toolbar */}

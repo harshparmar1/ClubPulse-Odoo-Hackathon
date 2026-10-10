@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   FileSpreadsheet,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -30,10 +31,15 @@ import {
   PanelLeft,
   Megaphone,
   Coins,
-  ArrowLeft
+  ArrowLeft,
+  Lock,
+  Vote,
+  Timer,
+  Network
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { NotificationDropdown } from './NotificationDropdown';
+import { MerchDrawer } from './MerchDrawer';
 
 export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
   const { user, role, logout, login, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
@@ -42,57 +48,87 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [demoMenuOpen, setDemoMenuOpen] = useState(false);
+  const [merchDrawerOpen, setMerchDrawerOpen] = useState(false);
 
-  const demoAccounts = [
-    { role: 'student', email: 'student@clubpulse.edu', name: 'Ananya Roy (Student)' },
-    { role: 'organizer', email: 'organizer@clubpulse.edu', name: 'Rohan Deshmukh (Organizer)' },
-    { role: 'treasurer', email: 'treasurer@clubpulse.edu', name: 'Priya Nair (Treasurer)' },
-    { role: 'admin', email: 'admin@clubpulse.edu', name: 'Aarav Sharma (Admin)' }
-  ];
-
-  const handleSwitchDemo = async (email, password) => {
-    try {
-      await login(email, password);
-      setDemoMenuOpen(false);
-      setMobileDrawerOpen(false);
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Demo switch error:', err);
+  // 365-Day Annual Committee Election Countdown Timer
+  const [electionTime, setElectionTime] = useState(() => {
+    let target = localStorage.getItem('clubpulse_election_target');
+    if (!target) {
+      target = (Date.now() + 365 * 24 * 60 * 60 * 1000).toString();
+      localStorage.setItem('clubpulse_election_target', target);
     }
-  };
+    const diff = Math.max(0, parseInt(target, 10) - Date.now());
+    return {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((diff % (1000 * 60)) / 1000)
+    };
+  });
 
+  useEffect(() => {
+    let target = localStorage.getItem('clubpulse_election_target');
+    if (!target) {
+      target = (Date.now() + 365 * 24 * 60 * 60 * 1000).toString();
+      localStorage.setItem('clubpulse_election_target', target);
+    }
+    const targetTimestamp = parseInt(target, 10);
+
+    const updateTimer = () => {
+      const diff = Math.max(0, targetTimestamp - Date.now());
+      setElectionTime({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000)
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isAdmin = role === 'admin';
   const isOrganizer = ['organizer', 'admin'].includes(role);
   const isTreasurer = ['treasurer', 'admin'].includes(role);
 
   const memberNavItems = [
+    ...(isOrganizer ? [{ to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }] : []),
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { to: isOrganizer ? '/organizer/events' : '/events', label: 'Events & Tickets', icon: Calendar },
-    ...(!isOrganizer
+    ...(!isOrganizer && !isTreasurer
       ? [
-          { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
-          { to: '/membership', label: 'Membership Status', icon: CreditCard }
-        ]
+        { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
+        { to: '/membership', label: 'Membership Status', icon: CreditCard }
+      ]
       : []),
-    { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag },
-    ...(canVolunteer && !isOrganizer
+    ...(!isTreasurer
       ? [
-          { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare },
-          { to: '/organizer/scanner', label: 'Manage QR / Scanner', icon: QrCode }
-        ]
+        {
+          to: '/merch',
+          label: 'Merch Catalog',
+          icon: ShoppingBag
+        }
+      ]
       : []),
-    { to: '/announcements', label: 'Bulletins', icon: Bell },
-    { to: '/expenses', label: 'Reimbursements', icon: Receipt }
+    ...(canVolunteer && !isOrganizer && !isTreasurer
+      ? [
+        { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare }
+      ]
+      : []),
+    ...(!isOrganizer && !isTreasurer && isVolunteer
+      ? [{ to: '/expenses', label: 'Reimbursements', icon: Receipt }]
+      : [])
   ];
 
   const navItemClass = (isActive) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all ${
-      isActive
-        ? 'bg-[#625BF6] text-white shadow-[0_2px_8px_rgba(98,91,246,0.3)]'
-        : 'text-[#A6ACBE] hover:text-white hover:bg-[#23253E]'
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all ${isActive
+      ? 'bg-[#625BF6] text-white shadow-[0_2px_8px_rgba(98,91,246,0.3)]'
+      : 'text-[#A6ACBE] hover:text-white hover:bg-[#23253E]'
     }`;
 
   const isItemActive = (to) => {
+    if (!to) return false;
     if (to === '/organizer/events') {
       return location.pathname.startsWith('/organizer/events');
     }
@@ -109,8 +145,27 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
           {title}
         </div>
       )}
-      {items.map((item) => {
+      {items.map((item, idx) => {
         const Icon = item.icon;
+        if (item.onClick) {
+          return (
+            <button
+              key={item.label || idx}
+              type="button"
+              onClick={item.onClick}
+              className={`w-full text-left ${navItemClass(false)} cursor-pointer`}
+              title={sidebarCollapsed ? item.label : undefined}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+              {!sidebarCollapsed && item.badge && (
+                <span className="ml-auto text-[10px] bg-[#625BF6]/20 text-[#D4D1FD] border border-[#625BF6]/40 px-1.5 py-0.2 rounded-full font-bold">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        }
         const active = isItemActive(item.to);
         return (
           <NavLink
@@ -139,9 +194,8 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
       {/* Desktop Sidebar (Fixed Dark Navy #17182B)            */}
       {/* ---------------------------------------------------- */}
       <aside
-        className={`hidden md:flex flex-col justify-between shrink-0 bg-[#17182B] border-r border-[#24263F] z-30 transition-all duration-300 sticky top-0 h-screen ${
-          sidebarCollapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`hidden md:flex flex-col justify-between shrink-0 bg-[#17182B] border-r border-[#24263F] z-30 transition-all duration-300 sticky top-0 h-screen ${sidebarCollapsed ? 'w-16' : 'w-64'
+          }`}
       >
         <div className="p-4 flex flex-col h-full overflow-hidden">
           {/* Logo Brand Header */}
@@ -175,58 +229,108 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             </button>
           </div>
 
-          {/* Back to Home Button */}
-          <div className="mb-3">
-            <Link
-              to="/"
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                sidebarCollapsed
-                  ? 'justify-center text-[#A6ACBE] hover:text-white hover:bg-[#23253E]'
-                  : 'bg-[#23253E]/80 text-[#CBD0E1] hover:text-white hover:bg-[#2E3152] border border-[#2B2E4E]'
-              }`}
-              title="Return to Chapter Homepage"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#847BFA] shrink-0" />
-              {!sidebarCollapsed && <span>← Back to Home</span>}
-            </Link>
-          </div>
 
           {/* Navigation Items (Scrollable) */}
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-            {/* Student Domain */}
-            {renderNavSection('Member Space', memberNavItems)}
-
-            {/* Organizer Workspaces */}
-            {isOrganizer && (
+            {isAdmin ? (
               <>
-                {renderNavSection('Overview', [
+                {renderNavSection('Administration', [
                   { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
                 ])}
 
-                {renderNavSection('Manage', [
-                  { to: '/organizer/members', label: 'Members', icon: Users },
-                  { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
-                  { to: '/organizer/scanner', label: 'Fast Scanner', icon: QrCode },
-                  { to: '/organizer/tasks', label: 'Tasks', icon: Kanban },
-                  { to: '/organizer/merch', label: 'Merchandise', icon: Box },
-                  { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                {renderNavSection('Events', [
+                  { to: '/organizer/events', label: 'Event Registrations', icon: Calendar }
                 ])}
 
-                {renderNavSection('Operations', [
-                  { to: '/action-center', label: 'Action Center', icon: CheckSquare },
-                  { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                {renderNavSection('Finance', [
+                  { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
                   { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-                  { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+                  { to: '/expenses', label: 'Volunteer Claims', icon: Receipt }
                 ])}
               </>
-            )}
+            ) : (
+              <>
+                {/* Overview Domain */}
+                {renderNavSection('Overview', memberNavItems)}
 
-            {/* Executive & Treasury */}
-            {isTreasurer &&
-              renderNavSection('Treasury & Intel', [
-                { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
-                { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet }
-              ])}
+                {/* Organizer Workspaces */}
+                {isOrganizer && (
+                  <>
+                    {renderNavSection('Manage', [
+                      { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                      { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                      { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                      { to: '/organizer/merch', label: 'Merchandise', icon: Box },
+                      { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                    ])}
+                  </>
+                )}
+
+                {/* Executive & Treasury */}
+                {isTreasurer &&
+                  renderNavSection('Treasury & Intel', [
+                    { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
+                    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                    { to: '/event-analytics', label: 'Event Analytics', icon: BarChart3 }
+                  ])}
+              </>
+            )}
+          </div>
+
+          {/* Annual Committee Election (Locked 365-Day Live Timer Section) */}
+          <div className="pt-2 mb-2">
+            {!sidebarCollapsed ? (
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#1D1F38] to-[#141527] border border-[#2B2E4E] shadow-sm select-none">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-5 h-5 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                      <Lock className="w-2.5 h-2.5 text-amber-400" />
+                    </div>
+                    <span className="text-[11px] font-bold text-white tracking-tight truncate">
+                      Annual Committee Election
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-0.5">
+                    <Lock className="w-2 h-2" />
+                    <span>Locked</span>
+                  </span>
+                </div>
+
+                {/* Live Running Countdown Timer */}
+                <div className="bg-[#0E0F1D] px-2 py-1.5 rounded-lg border border-[#252848] flex items-center justify-between font-mono">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-white font-bold">{electionTime.days}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">d</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-amber-300 font-bold">{String(electionTime.hours).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">h</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-indigo-300 font-bold">{String(electionTime.minutes).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">m</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-[#847BFA] font-bold animate-pulse">{String(electionTime.seconds).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">s</span>
+                  </div>
+                  <span className="text-[9px] text-amber-400/90 font-sans font-semibold flex items-center gap-0.5">
+                    <Timer className="w-2.5 h-2.5" />
+                    <span>365d</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="p-2 rounded-xl bg-[#1C1E36] border border-[#2B2E4E] flex flex-col items-center justify-center gap-1 cursor-default select-none"
+                title={`Annual Committee Election: Locked (${electionTime.days}d ${electionTime.hours}h ${electionTime.minutes}m ${electionTime.seconds}s)`}
+              >
+                <div className="relative">
+                  <Vote className="w-4 h-4 text-[#847BFA]" />
+                  <Lock className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />
+                </div>
+                <span className="text-[9px] font-mono font-bold text-amber-300">
+                  {electionTime.days}d
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Bottom Account Card */}
@@ -304,49 +408,90 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {/* Back to Home Button in Drawer */}
-              <Link
-                to="/"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-[#23253E] text-white border border-[#2B2E4E] hover:bg-[#625BF6] transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#847BFA]" />
-                <span>← Back to Home Page</span>
-              </Link>
-
-              {renderNavSection('Member Space', memberNavItems)}
-
-              {/* Organizer Workspaces */}
-              {isOrganizer && (
+              {isAdmin ? (
                 <>
-                  {renderNavSection('Overview', [
+                  {renderNavSection('Administration', [
                     { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
                   ])}
 
-                  {renderNavSection('Manage', [
-                    { to: '/organizer/members', label: 'Members', icon: Users },
-                    { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
-                    { to: '/organizer/scanner', label: 'Fast Scanner', icon: QrCode },
-                    { to: '/organizer/tasks', label: 'Tasks', icon: Kanban },
-                    { to: '/organizer/merch', label: 'Merchandise', icon: Box },
-                    { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                  {renderNavSection('Events', [
+                    { to: '/organizer/events', label: 'Event Registrations', icon: Calendar }
                   ])}
 
-                  {renderNavSection('Operations', [
-                    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
-                    { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                  {renderNavSection('Finance', [
+                    { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
                     { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-                    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+                    { to: '/expenses', label: 'Volunteer Claims', icon: Receipt }
                   ])}
                 </>
-              )}
+              ) : (
+                <>
+                  {/* Overview Domain */}
+                  {renderNavSection('Overview', memberNavItems)}
 
-              {/* Executive & Treasury */}
-              {isTreasurer &&
-                renderNavSection('Treasury & Intel', [
-                  { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
-                  { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet }
-                ])}
+                  {/* Organizer Workspaces */}
+                  {isOrganizer && (
+                    <>
+                      {renderNavSection('Manage', [
+                        { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                        { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                        { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                        { to: '/organizer/merch', label: 'Merchandise', icon: Box },
+                        { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                      ])}
+                    </>
+                  )}
+
+                  {/* Executive & Treasury */}
+                  {isTreasurer &&
+                    renderNavSection('Treasury & Intel', [
+                      { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
+                      { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                      { to: '/event-analytics', label: 'Event Analytics', icon: BarChart3 }
+                    ])}
+                </>
+              )}
+            </div>
+
+            {/* Annual Committee Election (Locked 365-Day Live Timer Section) */}
+            <div className="pt-2 mb-2">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#1D1F38] to-[#141527] border border-[#2B2E4E] shadow-sm select-none">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-5 h-5 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                      <Lock className="w-2.5 h-2.5 text-amber-400" />
+                    </div>
+                    <span className="text-[11px] font-bold text-white tracking-tight truncate">
+                      Annual Committee Election
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-0.5">
+                    <Lock className="w-2 h-2" />
+                    <span>Locked</span>
+                  </span>
+                </div>
+
+                {/* Live Running Countdown Timer */}
+                <div className="bg-[#0E0F1D] px-2 py-1.5 rounded-lg border border-[#252848] flex items-center justify-between font-mono">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-white font-bold">{electionTime.days}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">d</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-amber-300 font-bold">{String(electionTime.hours).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">h</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-indigo-300 font-bold">{String(electionTime.minutes).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">m</span>
+                    <span className="text-[#3E4268] font-sans">:</span>
+                    <span className="text-[#847BFA] font-bold animate-pulse">{String(electionTime.seconds).padStart(2, '0')}</span>
+                    <span className="text-[8px] text-[#71788E] uppercase font-sans">s</span>
+                  </div>
+                  <span className="text-[9px] text-amber-400/90 font-sans font-semibold flex items-center gap-0.5">
+                    <Timer className="w-2.5 h-2.5" />
+                    <span>365d</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="pt-3 border-t border-[#23253E] flex items-center justify-between">
@@ -379,15 +524,6 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Back to Home Button in Top Header */}
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F7F8FC] hover:bg-[#EEEDFE] text-[#171A2B] hover:text-[#625BF6] border border-[#E7E9F1] text-xs font-bold transition-all shadow-2xs group"
-              title="Return to Chapter Homepage"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#625BF6] group-hover:-translate-x-0.5 transition-transform" />
-              <span className="hidden sm:inline">Home Page</span>
-            </Link>
 
             {/* Breadcrumb or Title */}
             <div>
@@ -419,58 +555,24 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             {/* Operational Notifications */}
             <NotificationDropdown />
 
-            {/* Quick Demo Switcher (Crucial for Hackathon Evaluation) */}
-            <div className="relative">
-              <button
-                onClick={() => setDemoMenuOpen(!demoMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#F7F8FC] hover:bg-[#EEEDFE] text-[#171A2B] border border-[#E7E9F1] transition-colors shadow-2xs"
-                title="Switch demo persona instantly"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-[#625BF6]" />
-                <span className="hidden sm:inline text-[#687086]">Persona:</span>
-                <span className="capitalize font-bold text-[#625BF6]">{role}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#687086]" />
-              </button>
-
-              {demoMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-[#E7E9F1] p-2 z-50">
-                  <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#687086] border-b border-[#F3F4F8] mb-1">
-                    Instant Demo Switch
-                  </div>
-                  {demoAccounts.map((account) => (
-                    <button
-                      key={account.email}
-                      onClick={() => handleSwitchDemo(account.email, `${account.role}123`)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between hover:bg-[#EEEDFE] transition-colors ${
-                        user?.email === account.email ? 'bg-[#EEEDFE] text-[#625BF6] font-bold' : 'text-[#171A2B]'
-                      }`}
-                    >
-                      <span className="truncate">{account.name}</span>
-                      <StatusBadge
-                        variant={
-                          account.role === 'admin'
-                            ? 'critical'
-                            : account.role === 'treasurer'
-                            ? 'warning'
-                            : 'accent'
-                        }
-                      >
-                        {account.role}
-                      </StatusBadge>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* User Profile Pill */}
+            {/* User Profile Pill & Logout */}
             <div className="flex items-center gap-2 pl-2 border-l border-[#E7E9F1]">
               <div className="w-7 h-7 rounded-lg bg-[#EEEDFE] text-[#625BF6] border border-[#D4D1FD] flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.full_name?.[0]?.toUpperCase() || 'U'}
               </div>
-              <span className="hidden lg:inline text-xs font-semibold text-[#171A2B]">
+              <span className="hidden sm:inline text-xs font-semibold text-[#171A2B]">
                 {user?.full_name?.split(' ')[0]}
               </span>
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                className="p-1.5 text-[#687086] hover:text-[#D9485F] rounded-lg hover:bg-[#F7F8FC] transition-colors ml-1"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>
@@ -480,6 +582,12 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
           {children}
         </main>
       </div>
+
+      {/* Right Side Slide-Over Merch Catalog Drawer */}
+      <MerchDrawer
+        isOpen={merchDrawerOpen}
+        onClose={() => setMerchDrawerOpen(false)}
+      />
     </div>
   );
 };

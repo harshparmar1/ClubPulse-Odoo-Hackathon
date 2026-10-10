@@ -51,5 +51,8 @@ def get_me(current_user: dict = Depends(get_current_user)):
         membership_expiry=current_user.get("membership_expiry"),
         membership_tier=current_user.get("membership_tier", "annual"),
         membership_role=current_user.get("membership_role", "participant"),
+        is_volunteer=bool(current_user.get("is_volunteer", False) or current_user.get("membership_role") == "volunteer"),
+        volunteer_events=current_user.get("volunteer_events", []),
         created_at=current_user.get("created_at", "")
     )
+

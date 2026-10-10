@@ -16,3 +16,19 @@ def create_product(
     current_user: dict = Depends(require_roles(["organizer", "admin"]))
 ):
     return MerchService.create_product(data)
+
+@router.patch("/{product_id}", response_model=ProductResponse)
+def update_product(
+    product_id: str,
+    data: ProductUpdate,
+    current_user: dict = Depends(require_roles(["organizer", "admin"]))
+):
+    return MerchService.update_product(product_id, data)
+
+@router.delete("/{product_id}")
+def delete_product(
+    product_id: str,
+    current_user: dict = Depends(require_roles(["organizer", "admin"]))
+):
+    return MerchService.delete_product(product_id)
+

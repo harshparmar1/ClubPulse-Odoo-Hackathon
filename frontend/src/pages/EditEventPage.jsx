@@ -138,8 +138,12 @@ export const EditEventPage = () => {
       errs.estimatedBudgetInr = 'Budget cannot be negative.';
     }
 
-    if (formData.requiredVolunteers < 0) {
-      errs.requiredVolunteers = 'Volunteer requirement cannot be negative.';
+    if (
+      formData.requiredVolunteers === undefined ||
+      formData.requiredVolunteers === '' ||
+      parseInt(formData.requiredVolunteers, 10) < 2
+    ) {
+      errs.requiredVolunteers = 'A minimum of 2 volunteers is required (less than 2 is not permitted).';
     }
 
     if (formData.bannerUrl && formData.bannerUrl.trim()) {
@@ -552,11 +556,12 @@ export const EditEventPage = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-[#171A2B] mb-1">
-                      Required Volunteer Count
+                      Required Volunteer Count <span className="text-[#D9485F]">* (Min: 2)</span>
                     </label>
                     <input
                       type="number"
-                      min="0"
+                      min="2"
+                      placeholder="2"
                       value={formData.requiredVolunteers}
                       onChange={(e) =>
                         setFormData({ ...formData, requiredVolunteers: e.target.value })
@@ -567,8 +572,11 @@ export const EditEventPage = () => {
                           : 'border-[#E7E9F1] focus:ring-[#625BF6]'
                       }`}
                     />
+                    <p className="text-[10px] text-[#687086] mt-1">
+                      Minimum 2 volunteers compulsory. Assigned volunteer slots will be tracked in Department Roster & Tasks.
+                    </p>
                     {errors.requiredVolunteers && (
-                      <p className="text-[11px] text-[#D9485F] mt-1">{errors.requiredVolunteers}</p>
+                      <p className="text-[11px] text-[#D9485F] mt-1 font-semibold">{errors.requiredVolunteers}</p>
                     )}
                   </div>
                 </div>
