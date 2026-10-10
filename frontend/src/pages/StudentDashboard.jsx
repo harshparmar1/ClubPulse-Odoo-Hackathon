@@ -48,7 +48,7 @@ export const StudentDashboard = () => {
       setLoading(true);
       try {
         const promises = [
-          api.get('/api/events').catch(() => []),
+          api.get('/api/events?published_only=true').catch(() => []),
           api.get('/api/tickets/my-tickets').catch(() => []),
           api.get(`/api/tasks?assignee_id=${user?.id}`).catch(() => []),
           api.get('/api/announcements').catch(() => [])
@@ -61,7 +61,7 @@ export const StudentDashboard = () => {
         }
 
         const results = await Promise.all(promises);
-        setEvents(results[0] || []);
+        setEvents((results[0] || []).filter((e) => e.is_published !== false));
         setMyTickets(results[1] || []);
         setMyTasks(results[2] || []);
         setAnnouncements(results[3] || []);
@@ -309,7 +309,7 @@ export const StudentDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {events.slice(0, 3).map((evt) => {
+            {upcomingEvents.slice(0, 3).map((evt) => {
               const capacity = evt.capacity || 100;
               const booked = evt.booked_count || 0;
               const fillPct = Math.min(100, Math.round((booked / capacity) * 100));

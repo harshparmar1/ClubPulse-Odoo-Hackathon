@@ -16,3 +16,19 @@ def create_announcement(
     current_user: dict = Depends(require_roles(["organizer", "admin"]))
 ):
     return AnnouncementService.create_announcement(data, current_user=current_user)
+
+@router.patch("/{announcement_id}", response_model=AnnouncementResponse)
+def update_announcement(
+    announcement_id: str,
+    data: AnnouncementUpdate,
+    current_user: dict = Depends(require_roles(["organizer", "admin"]))
+):
+    return AnnouncementService.update_announcement(announcement_id, data, current_user=current_user)
+
+@router.delete("/{announcement_id}")
+def delete_announcement(
+    announcement_id: str,
+    current_user: dict = Depends(require_roles(["organizer", "admin"]))
+):
+    return AnnouncementService.delete_announcement(announcement_id, current_user=current_user)
+

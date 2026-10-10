@@ -27,7 +27,9 @@ import {
   ChevronRight,
   Sparkles,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Megaphone,
+  Coins
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -69,6 +71,16 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
         : 'text-[#A6ACBE] hover:text-white hover:bg-[#23253E]'
     }`;
 
+  const isItemActive = (to) => {
+    if (to === '/organizer/events') {
+      return location.pathname.startsWith('/organizer/events');
+    }
+    if (to === '/organizer/overview') {
+      return location.pathname === '/organizer/overview';
+    }
+    return location.pathname === to || (to !== '/' && location.pathname.startsWith(to + '/'));
+  };
+
   const renderNavSection = (title, items) => (
     <div className="space-y-1 mb-5">
       {!sidebarCollapsed && (
@@ -78,12 +90,13 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
       )}
       {items.map((item) => {
         const Icon = item.icon;
+        const active = isItemActive(item.to);
         return (
           <NavLink
             key={item.to}
             to={item.to}
             onClick={() => setMobileDrawerOpen(false)}
-            className={({ isActive }) => navItemClass(isActive)}
+            className={() => navItemClass(active)}
             title={sidebarCollapsed ? item.label : undefined}
           >
             <Icon className="w-4 h-4 shrink-0" />
@@ -146,7 +159,7 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             {/* Student Domain */}
             {renderNavSection('Member Space', [
               { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-              { to: '/events', label: 'Events & Tickets', icon: Calendar },
+              { to: isOrganizer ? '/organizer/events' : '/events', label: 'Events & Tickets', icon: Calendar },
               { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
               { to: '/membership', label: 'Membership Status', icon: CreditCard },
               { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag },
@@ -155,27 +168,36 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
               { to: '/expenses', label: 'Reimbursements', icon: Receipt }
             ])}
 
-            {/* Organizer Operations */}
-            {isOrganizer &&
-              renderNavSection('Operations', [
-                { to: '/action-center', label: 'Action Center', icon: CheckSquare },
-                { to: '/readiness', label: 'Event Readiness', icon: Activity },
-                { to: '/organizer/overview', label: 'Operations Hub', icon: LayoutDashboard },
-                { to: '/organizer/members', label: 'Member Roster', icon: Users },
-                { to: '/organizer/events', label: 'Events & Capacity', icon: Calendar },
-                { to: '/organizer/scanner', label: 'Gate QR Scanner', icon: QrCode },
-                { to: '/organizer/merch', label: 'Apparel Inventory', icon: Box },
-                { to: '/organizer/tasks', label: 'Sprint Task Board', icon: Kanban }
-              ])}
+            {/* Organizer Workspaces */}
+            {isOrganizer && (
+              <>
+                {renderNavSection('Overview', [
+                  { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
+                ])}
+
+                {renderNavSection('Manage', [
+                  { to: '/organizer/members', label: 'Members', icon: Users },
+                  { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                  { to: '/organizer/scanner', label: 'Fast Scanner', icon: QrCode },
+                  { to: '/organizer/tasks', label: 'Tasks', icon: Kanban },
+                  { to: '/organizer/merch', label: 'Merchandise', icon: Box },
+                  { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                ])}
+
+                {renderNavSection('Operations', [
+                  { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+                  { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                  { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                  { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+                ])}
+              </>
+            )}
 
             {/* Executive & Treasury */}
             {isTreasurer &&
               renderNavSection('Treasury & Intel', [
                 { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
-                { to: '/risk', label: 'Operational Risk', icon: ShieldAlert },
-                { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-                { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet },
-                { to: '/handover', label: 'Semester Handover', icon: FileSpreadsheet }
+                { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet }
               ])}
           </div>
 
@@ -256,7 +278,7 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
               {renderNavSection('Member Space', [
                 { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-                { to: '/events', label: 'Events & Tickets', icon: Calendar },
+                { to: isOrganizer ? '/organizer/events' : '/events', label: 'Events & Tickets', icon: Calendar },
                 { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
                 { to: '/membership', label: 'Membership Status', icon: CreditCard },
                 { to: '/merch', label: 'Merch Catalog', icon: ShoppingBag },
@@ -265,25 +287,36 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                 { to: '/expenses', label: 'Reimbursements', icon: Receipt }
               ])}
 
-              {isOrganizer &&
-                renderNavSection('Operations', [
-                  { to: '/action-center', label: 'Action Center', icon: CheckSquare },
-                  { to: '/readiness', label: 'Event Readiness', icon: Activity },
-                  { to: '/organizer/overview', label: 'Operations Hub', icon: LayoutDashboard },
-                  { to: '/organizer/members', label: 'Member Roster', icon: Users },
-                  { to: '/organizer/events', label: 'Events & Capacity', icon: Calendar },
-                  { to: '/organizer/scanner', label: 'Gate QR Scanner', icon: QrCode },
-                  { to: '/organizer/merch', label: 'Apparel Inventory', icon: Box },
-                  { to: '/organizer/tasks', label: 'Sprint Task Board', icon: Kanban }
-                ])}
+              {/* Organizer Workspaces */}
+              {isOrganizer && (
+                <>
+                  {renderNavSection('Overview', [
+                    { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
+                  ])}
 
+                  {renderNavSection('Manage', [
+                    { to: '/organizer/members', label: 'Members', icon: Users },
+                    { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                    { to: '/organizer/scanner', label: 'Fast Scanner', icon: QrCode },
+                    { to: '/organizer/tasks', label: 'Tasks', icon: Kanban },
+                    { to: '/organizer/merch', label: 'Merchandise', icon: Box },
+                    { to: '/organizer/announcements', label: 'Announcements', icon: Megaphone }
+                  ])}
+
+                  {renderNavSection('Operations', [
+                    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+                    { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+                    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+                    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
+                  ])}
+                </>
+              )}
+
+              {/* Executive & Treasury */}
               {isTreasurer &&
                 renderNavSection('Treasury & Intel', [
                   { to: '/ledger', label: 'Treasury Ledger', icon: Receipt },
-                  { to: '/risk', label: 'Operational Risk', icon: ShieldAlert },
-                  { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
-                  { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet },
-                  { to: '/handover', label: 'Semester Handover', icon: FileSpreadsheet }
+                  { to: '/audit-logs', label: 'Audit Trail', icon: FileSpreadsheet }
                 ])}
             </div>
 

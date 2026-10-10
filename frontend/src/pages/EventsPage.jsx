@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, MapPin, Users, Search, Tag, Sparkles, Ticket } from 'lucide-react';
@@ -8,16 +9,20 @@ import { EventBookingModal } from '../components/EventBookingModal';
 import { EmptyState } from '../components/EmptyState';
 
 export const EventsPage = () => {
-  const { isMember } = useAuth();
+  const { isMember, role, loading: authLoading } = useAuth();
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
+  if (!authLoading && ['organizer', 'admin', 'treasurer'].includes(role)) {
+    return <Navigate to="/organizer/events" replace />;
+  }
+
   const fetchEvents = async () => {
     try {
-      const data = await api.get('/api/events');
+      const data = await api.get('/api/events?published_only=true');
       setEvents(data || []);
     } catch (err) {
       console.error('Failed to load events:', err);
@@ -33,6 +38,8 @@ export const EventsPage = () => {
   const tagsList = ['All', 'Hackathon', 'Workshop', 'AI', 'Coding', 'Gala', 'Prizes'];
 
   const filteredEvents = events.filter((e) => {
+    if (e.is_published === false) return false;
+
     const matchesSearch =
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,21 +82,28 @@ export const EventsPage = () => {
           </div>
         </div>
 
-        {/* Filter Tags */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          {tagsList.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => setSelectedTag(tag)}
-              className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 ${
-                selectedTag === tag
-                  ? 'bg-[#625BF6] text-white shadow-2xs'
-                  : 'bg-white text-[#687086] border border-[#E7E9F1] hover:bg-[#F7F8FC]'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
+        {/* Category Tags & Count */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="text-xs font-semibold text-[#687086]">
+            Showing <span className="font-bold text-[#171A2B]">{filteredEvents.length}</span> published chapter events
+          </div>
+
+          {/* Filter Tags */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            {tagsList.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 ${
+                  selectedTag === tag
+                    ? 'bg-[#625BF6] text-white shadow-2xs'
+                    : 'bg-white text-[#687086] border border-[#E7E9F1] hover:bg-[#F7F8FC]'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Events Grid */}

@@ -254,9 +254,29 @@ class SimulatorService:
             }
         )
 
+        try:
+            from app.services.audit_service import record_audit_log
+            record_audit_log(
+                user_email=current_user.get("email", "unknown"),
+                user_role=current_user.get("role", "organizer"),
+                action="APPLY_SIMULATION",
+                entity_type="event",
+                entity_id=data.event_id,
+                summary=f"Applied simulated scenario to event '{event.get('title')}' (capacity={data.capacity}, budget=₹{data.estimated_budget_paise/100:.0f})",
+                payload={
+                    "capacity": data.capacity,
+                    "member_price_paise": data.member_price_paise,
+                    "non_member_price_paise": data.non_member_price_paise,
+                    "estimated_budget_paise": data.estimated_budget_paise
+                }
+            )
+        except Exception:
+            pass
+
         return {
             "success": True,
             "message": f"Successfully updated live event parameters for '{event['title']}' based on verified simulation.",
             "event_id": data.event_id,
             "updated_at": now_iso
         }
+

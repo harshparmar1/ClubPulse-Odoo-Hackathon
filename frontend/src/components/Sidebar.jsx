@@ -16,7 +16,8 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   FileSpreadsheet,
-  AlertOctagon
+  AlertOctagon,
+  Megaphone
 } from 'lucide-react';
 
 export const Sidebar = () => {
@@ -32,21 +33,24 @@ export const Sidebar = () => {
   ];
 
   const organizerLinks = [
-    { to: '/organizer/overview', label: 'Operations Hub', icon: LayoutDashboard },
+    { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard },
     { to: '/organizer/members', label: 'Member Roster', icon: Users },
     { to: '/organizer/events', label: 'Events & Capacity', icon: Calendar },
-    { to: '/organizer/scanner', label: 'QR Scanner Lane', icon: QrCode },
-    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
+    { to: '/organizer/scanner', label: 'Fast QR Scanner', icon: QrCode },
     { to: '/organizer/tasks', label: 'Task Board', icon: Kanban },
-    { to: '/risk', label: 'Risk Engine', icon: ShieldAlert, highlight: 'rose' }
+    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
+    { to: '/organizer/announcements', label: 'Bulletins', icon: Megaphone || CheckSquare },
+    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+    { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
   ];
 
   const executiveLinks = [
     { to: '/ledger', label: 'Financial Ledger', icon: Receipt },
-    { to: '/expenses', label: 'Expense Review', icon: CheckSquare },
-    { to: '/risk', label: 'Operational Risk', icon: ShieldAlert, highlight: 'rose' },
-    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal, highlight: 'indigo' },
-    { to: '/handover', label: 'Handover Report', icon: FileSpreadsheet }
+    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
   ];
 
   return (
