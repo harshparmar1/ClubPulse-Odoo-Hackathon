@@ -61,7 +61,10 @@ export const Navbar = () => {
 
         {/* Navigation Items */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-[#687086]">
-          <Link to="/events" className="hover:text-[#625BF6] transition-colors">
+          <Link
+            to={['organizer', 'treasurer', 'admin'].includes(role) ? '/organizer/events' : '/events'}
+            className="hover:text-[#625BF6] transition-colors"
+          >
             Events
           </Link>
           <Link to="/merch" className="hover:text-[#625BF6] transition-colors">
@@ -206,7 +209,7 @@ export const Navbar = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-[#E7E9F1] bg-white px-4 pt-3 pb-5 space-y-2">
           <Link
-            to="/events"
+            to={['organizer', 'treasurer', 'admin'].includes(role) ? '/organizer/events' : '/events'}
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 rounded-xl text-xs font-semibold text-[#171A2B] hover:bg-[#F7F8FC]"
           >

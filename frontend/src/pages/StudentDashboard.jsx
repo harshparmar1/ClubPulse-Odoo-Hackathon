@@ -59,7 +59,7 @@ export const StudentDashboard = () => {
     setLoading(true);
     try {
       const promises = [
-        api.get('/api/events').catch(() => []),
+        api.get('/api/events?published_only=true').catch(() => []),
         api.get('/api/tickets/my-tickets').catch(() => []),
         api.get(`/api/tasks?assignee_id=${user?.id}`).catch(() => []),
         api.get('/api/announcements').catch(() => [])
@@ -72,7 +72,7 @@ export const StudentDashboard = () => {
       }
 
       const results = await Promise.all(promises);
-      setEvents(results[0] || []);
+      setEvents((results[0] || []).filter((e) => e.is_published !== false));
       setMyTickets(results[1] || []);
       setMyTasks(results[2] || []);
       setAnnouncements(results[3] || []);
@@ -166,27 +166,39 @@ export const StudentDashboard = () => {
                     <GraduationCap className="w-3.5 h-3.5" />
                     <span>ID: {user?.roll_number || 'STU-001'}</span>
                   </span>
-                  <StatusBadge variant={isMember ? (isVolunteer ? 'accent' : 'active') : 'warning'}>
-                    {isMember
-                      ? isVolunteer
-                        ? 'Active Volunteer Crew'
-                        : 'Active Member • Participant'
-                      : 'Standard Student (Non-Member)'}
+                  <StatusBadge variant={isOrganizer ? 'active' : isMember ? (isVolunteer ? 'accent' : 'active') : 'warning'}>
+                    {isOrganizer
+                      ? 'Event Organizer'
+                      : isMember
+                        ? isVolunteer
+                          ? 'Active Volunteer Crew'
+                          : 'Active Member • Participant'
+                        : 'Standard Student (Non-Member)'}
                   </StatusBadge>
                 </div>
                 <p className="text-xs sm:text-sm text-[#687086]">
-                  {isMember
-                    ? isVolunteer
-                      ? 'Volunteer operational tasks assigned & Gate QR Scanner access enabled.'
-                      : 'All exclusive chapter privileges, 50% hackathon discount codes, and passes active.'
-                    : 'You can freely participate in campus events. Activate chapter membership to unlock 50% discounts.'}
+                  {isOrganizer
+                    ? 'Oversee event execution, attendee capacity, team operations, and live gate scanning.'
+                    : isMember
+                      ? isVolunteer
+                        ? 'Volunteer operational tasks assigned & Gate QR Scanner access enabled.'
+                        : 'All exclusive chapter privileges, 50% hackathon discount codes, and passes active.'
+                      : 'You can freely participate in campus events. Activate chapter membership to unlock 50% discounts.'}
                 </p>
               </div>
             </div>
 
             {/* Quick Contextual Actions */}
             <div className="flex items-center gap-2.5 shrink-0">
-              {isMember ? (
+              {isOrganizer ? (
+                <Link
+                  to="/organizer/overview"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-bold shadow-xs transition-all hover:shadow-md"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Organizer Command Center</span>
+                </Link>
+              ) : isMember ? (
                 <Link
                   to="/my-tickets"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-xs font-bold shadow-xs transition-all hover:shadow-md"
@@ -223,31 +235,33 @@ export const StudentDashboard = () => {
         {/* ---------------------------------------------------- */}
         {/* 3. Student Member Privileges Ribbon                  */}
         {/* ---------------------------------------------------- */}
-        <div className="rounded-xl p-4 bg-[#F7F8FD] border border-[#E1E4F5] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold shrink-0">
-              <Award className="w-4 h-4" />
+        {!isOrganizer && (
+          <div className="rounded-xl p-4 bg-[#F7F8FD] border border-[#E1E4F5] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center font-bold shrink-0">
+                <Award className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-[#171A2B]">Student Organization Benefits: </span>
+                <span className="text-[#687086]">
+                  {isMember
+                    ? '50% Flat Off Passes • Early Merch Drop • Priority Workshop RSVPs • AGM Voting Right'
+                    : 'Upgrade to verified membership to enjoy 50% ticket waivers and exclusive club kits.'}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="font-extrabold text-[#171A2B]">Student Organization Benefits: </span>
-              <span className="text-[#687086]">
-                {isMember
-                  ? '50% Flat Off Passes • Early Merch Drop • Priority Workshop RSVPs • AGM Voting Right'
-                  : 'Upgrade to verified membership to enjoy 50% ticket waivers and exclusive club kits.'}
-              </span>
-            </div>
+            <Link
+              to="/membership"
+              className="inline-flex items-center gap-1.5 font-bold text-[#625BF6] hover:text-[#5048E5] shrink-0"
+            >
+              <span>{isMember ? 'Manage Membership' : 'Join for ₹500/yr'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <Link
-            to="/membership"
-            className="inline-flex items-center gap-1.5 font-bold text-[#625BF6] hover:text-[#5048E5] shrink-0"
-          >
-            <span>{isMember ? 'Manage Membership' : 'Join for ₹500/yr'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+        )}
 
         {/* ---------------------------------------------------- */}
-        {/* 4. Student KPI Metrics Row                           */}
+        {/* 4. KPI Metrics Row                                   */}
         {/* ---------------------------------------------------- */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -257,39 +271,71 @@ export const StudentDashboard = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Membership Tier"
-              value={isMember ? 'Active Member' : 'Standard Student'}
-              subtitle={isMember ? '50% ticket discounts unlocked' : 'Renew dues to access perks'}
-              icon={CreditCard}
-              color={isMember ? 'teal' : 'amber'}
-              badge={
-                <StatusBadge variant={isMember ? 'active' : 'warning'}>
-                  {isMember ? 'Verified' : 'Pending'}
-                </StatusBadge>
-              }
-              onClick={() => navigate('/membership')}
-            />
+            {isOrganizer ? (
+              <>
+                <StatCard
+                  title="Events Managed"
+                  value={`${events.length} Events`}
+                  subtitle="Publishing & capacity control"
+                  icon={Calendar}
+                  color="indigo"
+                  badge={
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
+                      Flight Control
+                    </span>
+                  }
+                  onClick={() => navigate('/organizer/events')}
+                />
 
-            <StatCard
-              title="My QR Passes"
-              value={`${myTickets.length} Passes`}
-              subtitle={
-                myTickets.filter((t) => !t.checked_in).length > 0
-                  ? `${myTickets.filter((t) => !t.checked_in).length} ready for check-in`
-                  : 'No active event passes'
-              }
-              icon={Ticket}
-              color="indigo"
-              badge={
-                myTickets.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
-                    Digital QR
-                  </span>
-                )
-              }
-              onClick={() => navigate('/my-tickets')}
-            />
+                <StatCard
+                  title="Member Directory"
+                  value={`${allMembers.length} Members`}
+                  subtitle="Verified student memberships"
+                  icon={Users}
+                  color="teal"
+                  badge={
+                    <StatusBadge variant="active">Active Roster</StatusBadge>
+                  }
+                  onClick={() => navigate('/organizer/members')}
+                />
+              </>
+            ) : (
+              <>
+                <StatCard
+                  title="Membership Tier"
+                  value={isMember ? 'Active Member' : 'Standard Student'}
+                  subtitle={isMember ? '50% ticket discounts unlocked' : 'Renew dues to access perks'}
+                  icon={CreditCard}
+                  color={isMember ? 'teal' : 'amber'}
+                  badge={
+                    <StatusBadge variant={isMember ? 'active' : 'warning'}>
+                      {isMember ? 'Verified' : 'Pending'}
+                    </StatusBadge>
+                  }
+                  onClick={() => navigate('/membership')}
+                />
+
+                <StatCard
+                  title="My QR Passes"
+                  value={`${myTickets.length} Passes`}
+                  subtitle={
+                    myTickets.filter((t) => !t.checked_in).length > 0
+                      ? `${myTickets.filter((t) => !t.checked_in).length} ready for check-in`
+                      : 'No active event passes'
+                  }
+                  icon={Ticket}
+                  color="indigo"
+                  badge={
+                    myTickets.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#625BF6]/10 text-[#625BF6]">
+                        Digital QR
+                      </span>
+                    )
+                  }
+                  onClick={() => navigate('/my-tickets')}
+                />
+              </>
+            )}
 
             <StatCard
               title="Volunteer Tasks"
@@ -357,114 +403,181 @@ export const StudentDashboard = () => {
         {/* ---------------------------------------------------- */}
         {/* 6. Main Student Two-Column Experience                */}
         {/* ---------------------------------------------------- */}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
           {/* Left Column (7 cols): Active QR Pass & Upcoming Events */}
           <div className="lg:col-span-7 space-y-7">
-            {/* A. Active QR Gate Credential */}
-            <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-5">
-              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center">
-                    <QrCode className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-extrabold text-[#171A2B]">
-                      Gate Pass & Digital QR Credential
-                    </h2>
-                    <p className="text-[11px] text-[#687086]">
-                      Fast-track check-in code for upcoming chapter gatherings
-                    </p>
-                  </div>
-                </div>
-                <Link
-                  to="/my-tickets"
-                  className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
-                >
-                  <span>All Passes ({myTickets.length})</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              {activeTicket ? (
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#F7F8FC] to-[#EEEDFE]/30 border border-[#E0E3F5] flex flex-col sm:flex-row items-center gap-5">
-                  <div className="bg-white p-3 rounded-xl border border-[#D4D1FD] shadow-xs shrink-0 flex flex-col items-center">
-                    <QRCodeSVG
-                      value={activeTicket.qr_token || activeTicket.id}
-                      size={110}
-                      level="H"
-                      includeMargin={false}
-                    />
-                    <span className="text-[9px] font-mono font-bold text-[#687086] mt-1.5 uppercase">
-                      {activeTicket.qr_token?.slice(0, 10) || 'GATE-PASS'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5 flex-1 w-full text-center sm:text-left">
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                      <StatusBadge variant={activeTicket.checked_in ? 'active' : 'accent'}>
-                        {activeTicket.checked_in ? 'Checked In' : 'Active Pass'}
-                      </StatusBadge>
-                      {activeTicket.is_member_discount_applied && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#16856B] bg-[#E7F5F0] px-2 py-0.5 rounded-full">
-                          <Tag className="w-3 h-3" />
-                          <span>Member 50% Applied</span>
-                        </span>
-                      )}
+            {/* A. Active Operations / QR Gate Credential */}
+            {isOrganizer ? (
+              <div className="bg-gradient-to-br from-[#17182B] to-[#23253E] text-white rounded-2xl p-6 border border-[#2B2E4E] shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-[#2B2E4E] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#625BF6]/20 text-[#847BFA] border border-[#625BF6]/40 flex items-center justify-center">
+                      <LayoutDashboard className="w-4 h-4" />
                     </div>
-
                     <div>
-                      <h3 className="text-base font-extrabold text-[#171A2B]">
-                        {activeTicket.event_title}
-                      </h3>
-                      <div className="space-y-1 text-xs text-[#687086] mt-1">
-                        <div className="flex items-center justify-center sm:justify-start gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
-                          <span>{activeTicket.event_date}</span>
-                        </div>
-                        <div className="flex items-center justify-center sm:justify-start gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#687086]" />
-                          <span className="truncate">{activeTicket.venue}</span>
-                        </div>
-                      </div>
+                      <h2 className="text-sm font-extrabold text-white">
+                        Organizer Operations Quick Launch
+                      </h2>
+                      <p className="text-[11px] text-[#8B93A7]">
+                        Monitor event live capacity, volunteer teams, and gate operations
+                      </p>
                     </div>
-
-                    <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
-                      <button
-                        onClick={() => setActiveModalTicket(activeTicket)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#625BF6] text-white text-xs font-bold hover:bg-[#5048E5] transition-colors"
-                      >
-                        Enlarge QR Code
-                      </button>
-                      <Link
-                        to="/my-tickets"
-                        className="px-3 py-1.5 rounded-lg bg-white border border-[#E7E9F1] text-xs font-semibold text-[#171A2B] hover:bg-[#F3F4F8] transition-colors"
-                      >
-                        Pass Details
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center rounded-xl bg-[#F7F8FC] border border-dashed border-[#D3D7E8] space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-[#EEEDFE] text-[#625BF6] flex items-center justify-center mx-auto">
-                    <Ticket className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#171A2B]">No active event passes</h4>
-                    <p className="text-xs text-[#687086] mt-0.5 max-w-sm mx-auto">
-                      Reserve tickets for upcoming tech hackathons, workshops, and student networking galas.
-                    </p>
                   </div>
                   <Link
-                    to="/events"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
+                    to="/organizer/overview"
+                    className="text-xs font-bold text-[#847BFA] hover:text-white flex items-center gap-1 transition-colors"
                   >
-                    <span>Browse Campus Events</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span>Command Hub</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <Link
+                    to="/organizer/events"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#625BF6]/20 text-[#847BFA] flex items-center justify-center mb-2">
+                      <Calendar className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Events Hub</div>
+                      <div className="text-[10px] text-[#8B93A7]">{events.length} Live & Draft Events</div>
+                    </div>
+                  </Link>
+                  <Link
+                    to="/organizer/scanner"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#16856B]/20 text-[#2AD1A3] flex items-center justify-center mb-2">
+                      <QrCode className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Fast QR Scanner</div>
+                      <div className="text-[10px] text-[#8B93A7]">Live Attendee Check-In</div>
+                    </div>
+                  </Link>
+                  <Link
+                    to="/organizer/members"
+                    className="p-3.5 rounded-xl bg-[#1E2038] hover:bg-[#2B2E4E] border border-[#2B2E4E] transition-all flex flex-col justify-between"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#D98A18]/20 text-[#FDBA74] flex items-center justify-center mb-2">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Member Roster</div>
+                      <div className="text-[10px] text-[#8B93A7]">{allMembers.length} Chapter Members</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-5">
+                <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-[#171A2B]">
+                        Gate Pass & Digital QR Credential
+                      </h2>
+                      <p className="text-[11px] text-[#687086]">
+                        Fast-track check-in code for upcoming chapter gatherings
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/my-tickets"
+                    className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1"
+                  >
+                    <span>All Passes ({myTickets.length})</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {activeTicket ? (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#F7F8FC] to-[#EEEDFE]/30 border border-[#E0E3F5] flex flex-col sm:flex-row items-center gap-5">
+                    <div className="bg-white p-3 rounded-xl border border-[#D4D1FD] shadow-xs shrink-0 flex flex-col items-center">
+                      <QRCodeSVG
+                        value={activeTicket.qr_token || activeTicket.id}
+                        size={110}
+                        level="H"
+                        includeMargin={false}
+                      />
+                      <span className="text-[9px] font-mono font-bold text-[#687086] mt-1.5 uppercase">
+                        {activeTicket.qr_token?.slice(0, 10) || 'GATE-PASS'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 flex-1 w-full text-center sm:text-left">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <StatusBadge variant={activeTicket.checked_in ? 'active' : 'accent'}>
+                          {activeTicket.checked_in ? 'Checked In' : 'Active Pass'}
+                        </StatusBadge>
+                        {activeTicket.is_member_discount_applied && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#16856B] bg-[#E7F5F0] px-2 py-0.5 rounded-full">
+                            <Tag className="w-3 h-3" />
+                            <span>Member 50% Applied</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#171A2B]">
+                          {activeTicket.event_title}
+                        </h3>
+                        <div className="space-y-1 text-xs text-[#687086] mt-1">
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
+                            <span>{activeTicket.event_date}</span>
+                          </div>
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#687086]" />
+                            <span className="truncate">{activeTicket.venue}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
+                        <button
+                          onClick={() => setActiveModalTicket(activeTicket)}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#625BF6] text-white text-xs font-bold hover:bg-[#5048E5] transition-colors"
+                        >
+                          Enlarge QR Code
+                        </button>
+                        <Link
+                          to="/my-tickets"
+                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E7E9F1] text-xs font-semibold text-[#171A2B] hover:bg-[#F3F4F8] transition-colors"
+                        >
+                          Pass Details
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center rounded-xl bg-[#F7F8FC] border border-dashed border-[#D3D7E8] space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-[#EEEDFE] text-[#625BF6] flex items-center justify-center mx-auto">
+                      <Ticket className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#171A2B]">No active event passes</h4>
+                      <p className="text-xs text-[#687086] mt-0.5 max-w-sm mx-auto">
+                        Reserve tickets for upcoming tech hackathons, workshops, and student networking galas.
+                      </p>
+                    </div>
+                    <Link
+                      to="/events"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
+                    >
+                      <span>Browse Campus Events</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* B. Upcoming Chapter Events */}
             <div className="space-y-4">
@@ -754,11 +867,11 @@ export const StudentDashboard = () => {
               </div>
             )}
 
-            {/* B. Student Quick Action Hub */}
+            {/* B. Quick Action Hub */}
             <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
               <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
                 <h3 className="text-sm font-extrabold text-[#171A2B]">
-                  Student Fast Actions
+                  {isOrganizer ? 'Organizer Quick Actions' : 'Student Fast Actions'}
                 </h3>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#687086]">
                   Shortcuts
@@ -766,38 +879,23 @@ export const StudentDashboard = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Link
-                  to="/my-tickets"
-                  className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
-                    <Ticket className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                      QR Passes
-                    </h4>
-                    <p className="text-[10px] text-[#687086]">Event entry codes</p>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/membership"
-                  className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
-                    <CreditCard className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                      Membership
-                    </h4>
-                    <p className="text-[10px] text-[#687086]">Perks & renewal</p>
-                  </div>
-                </Link>
-
-                {canVolunteer ? (
+                {isOrganizer ? (
                   <>
+                    <Link
+                      to="/organizer/events"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Manage Events
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Create & edit</p>
+                      </div>
+                    </Link>
+
                     <Link
                       to="/organizer/scanner"
                       className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
@@ -807,14 +905,29 @@ export const StudentDashboard = () => {
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                          Gate Scanner
+                          Fast Scanner
                         </h4>
-                        <p className="text-[10px] text-[#687086]">Verify QR tickets</p>
+                        <p className="text-[10px] text-[#687086]">Gate QR check-in</p>
                       </div>
                     </Link>
 
                     <Link
-                      to="/my-tasks"
+                      to="/organizer/members"
+                      className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                          Member Roster
+                        </h4>
+                        <p className="text-[10px] text-[#687086]">Student directory</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/organizer/tasks"
                       className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
                     >
                       <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
@@ -822,43 +935,109 @@ export const StudentDashboard = () => {
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                          My Tasks
+                          Task Board
                         </h4>
-                        <p className="text-[10px] text-[#687086]">Volunteer duties</p>
+                        <p className="text-[10px] text-[#687086]">Team assignments</p>
                       </div>
                     </Link>
                   </>
                 ) : (
                   <>
                     <Link
-                      to="/events"
+                      to="/my-tickets"
                       className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
                     >
                       <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
-                        <Calendar className="w-4 h-4" />
+                        <Ticket className="w-4 h-4" />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                          All Events
+                          QR Passes
                         </h4>
-                        <p className="text-[10px] text-[#687086]">Hackathons & labs</p>
+                        <p className="text-[10px] text-[#687086]">Event entry codes</p>
                       </div>
                     </Link>
 
                     <Link
-                      to="/expenses"
+                      to="/membership"
                       className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#D98A18]/10 text-[#D98A18] flex items-center justify-center mb-2">
-                        <Receipt className="w-4 h-4" />
+                      <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
+                        <CreditCard className="w-4 h-4" />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
-                          Reimburse
+                          Membership
                         </h4>
-                        <p className="text-[10px] text-[#687086]">File claim receipts</p>
+                        <p className="text-[10px] text-[#687086]">Perks & renewal</p>
                       </div>
                     </Link>
+
+                    {canVolunteer ? (
+                      <>
+                        <Link
+                          to="/organizer/scanner"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#16856B]/10 text-[#16856B] flex items-center justify-center mb-2">
+                            <QrCode className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              Gate Scanner
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Verify QR tickets</p>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/my-tasks"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                            <CheckSquare className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              My Tasks
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Volunteer duties</p>
+                          </div>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/events"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#625BF6]/10 text-[#625BF6] flex items-center justify-center mb-2">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              All Events
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">Hackathons & labs</p>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/expenses"
+                          className="p-3.5 rounded-xl bg-[#F7F8FC] hover:bg-[#EEEDFE] border border-[#E7E9F1] hover:border-[#D4D1FD] transition-all group flex flex-col justify-between"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#D98A18]/10 text-[#D98A18] flex items-center justify-center mb-2">
+                            <Receipt className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-[#171A2B] group-hover:text-[#625BF6]">
+                              Reimburse
+                            </h4>
+                            <p className="text-[10px] text-[#687086]">File claim receipts</p>
+                          </div>
+                        </Link>
+                      </>
+                    )}
                   </>
                 )}
               </div>

@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Kanban, Plus, Calendar, AlertTriangle, CheckCircle2, User, X, Clock, ArrowRight } from 'lucide-react';
+import {
+  Kanban,
+  Plus,
+  Calendar,
+  AlertTriangle,
+  CheckCircle2,
+  User,
+  X,
+  Clock,
+  ArrowRight,
+  Edit2,
+  Filter,
+  Check,
+  ChevronRight,
+  Sparkles
+} from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/EmptyState';
@@ -11,21 +26,30 @@ export const TaskBoardPage = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [events, setEvents] = useState([]);
+  const [selectedEventFilter, setSelectedEventFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+
+  // Modals
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
   // Form states
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [eventId, setEventId] = useState('');
-  const [assigneeName, setAssigneeName] = useState('Ananya Roy');
-  const [dueDate, setDueDate] = useState('');
-  const [priority, setPriority] = useState('medium');
-  const [isCriticalPath, setIsCriticalPath] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
+  const [formState, setFormState] = useState({
+    title: '',
+    description: '',
+    event_id: '',
+    assignee_name: '',
+    due_date: new Date().toISOString().slice(0, 10),
+    priority: 'medium',
+    is_critical_path: false,
+    status: 'todo'
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchTasksAndEvents = async () => {
     try {
+      setLoading(true);
       const [tskRes, evRes] = await Promise.all([
         api.get('/api/tasks'),
         api.get('/api/events')
@@ -54,38 +78,82 @@ export const TaskBoardPage = () => {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    setCreateLoading(true);
-
+    setSubmitting(true);
     try {
       await api.post('/api/tasks', {
-        title,
-        description,
-        event_id: eventId || null,
-        assignee_name: assigneeName || null,
-        assignee_id: 'usr_student01',
-        due_date: dueDate || new Date().toISOString().slice(0, 10),
-        priority,
-        is_critical_path: isCriticalPath,
+        title: formState.title,
+        description: formState.description || '',
+        event_id: formState.event_id || null,
+        assignee_name: formState.assignee_name || null,
+        assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
+        due_date: formState.due_date,
+        priority: formState.priority,
+        is_critical_path: formState.is_critical_path,
         status: 'todo'
       });
-      setModalOpen(false);
-      setTitle('');
-      setDescription('');
+      setCreateModalOpen(false);
       fetchTasksAndEvents();
     } catch (err) {
       alert(`Task creation failed: ${err.message}`);
     } finally {
-      setCreateLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const todoTasks = tasks.filter((t) => t.status === 'todo');
-  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress');
-  const doneTasks = tasks.filter((t) => t.status === 'done');
+  const handleOpenEdit = (task) => {
+    setEditingTask(task);
+    setFormState({
+      title: task.title || '',
+      description: task.description || '',
+      event_id: task.event_id || '',
+      assignee_name: task.assignee_name || '',
+      due_date: task.due_date || new Date().toISOString().slice(0, 10),
+      priority: task.priority || 'medium',
+      is_critical_path: task.is_critical_path || false,
+      status: task.status || 'todo'
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    setSubmitting(true);
+    try {
+      await api.patch(`/api/tasks/${editingTask.id}`, {
+        title: formState.title,
+        description: formState.description,
+        event_id: formState.event_id || null,
+        assignee_name: formState.assignee_name || null,
+        assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
+        due_date: formState.due_date,
+        priority: formState.priority,
+        is_critical_path: formState.is_critical_path,
+        status: formState.status
+      });
+      setEditModalOpen(false);
+      fetchTasksAndEvents();
+    } catch (err) {
+      alert(`Task update failed: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Filter tasks by selected event
+  const filteredTasks = tasks.filter((t) => {
+    if (selectedEventFilter === 'ALL') return true;
+    return t.event_id === selectedEventFilter;
+  });
+
+  const todoTasks = filteredTasks.filter((t) => t.status === 'todo');
+  const inProgressTasks = filteredTasks.filter((t) => t.status === 'in_progress');
+  const doneTasks = filteredTasks.filter((t) => t.status === 'done' || t.status === 'completed');
 
   return (
-    <DashboardLayout>
+    <DashboardLayout pageTitle="Sprint & Volunteer Task Board">
       <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
@@ -93,20 +161,66 @@ export const TaskBoardPage = () => {
               <span>Sprint Coordination Board</span>
             </div>
             <h1 className="text-2xl font-bold text-[#171A2B] tracking-tight">
-              Volunteer & Fundraiser Task Board
+              Tasks & Volunteer Coordination
             </h1>
             <p className="text-xs text-[#687086] mt-1">
-              Live status tracking with critical path dependency flags feeding the Operational Risk Engine.
+              Live status tracking with critical-path flags feeding the Operational Risk Engine and Event Readiness audits.
             </p>
           </div>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Sprint Task</span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                setFormState({
+                  title: '',
+                  description: '',
+                  event_id: selectedEventFilter !== 'ALL' ? selectedEventFilter : '',
+                  assignee_name: '',
+                  due_date: new Date().toISOString().slice(0, 10),
+                  priority: 'medium',
+                  is_critical_path: false,
+                  status: 'todo'
+                });
+                setCreateModalOpen(true);
+              }}
+              className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Sprint Task</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-[#E7E9F1] shadow-2xs">
+          <div className="flex items-center gap-2 text-xs">
+            <Filter className="w-4 h-4 text-[#687086]" />
+            <span className="font-semibold text-[#171A2B]">Filter by Event:</span>
+            <select
+              value={selectedEventFilter}
+              onChange={(e) => setSelectedEventFilter(e.target.value)}
+              className="px-3 py-1.5 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-xs font-medium text-[#171A2B]"
+            >
+              <option value="ALL">All Events & General Operations</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="text-xs text-[#687086] flex items-center gap-3">
+            <span>Total Tasks: <strong>{filteredTasks.length}</strong></span>
+            <span>•</span>
+            <span className="text-[#D9485F] font-semibold">
+              {filteredTasks.filter((t) => t.is_overdue).length} Overdue
+            </span>
+            <span>•</span>
+            <span className="text-[#625BF6] font-semibold">
+              {filteredTasks.filter((t) => t.is_critical_path).length} Critical Path
+            </span>
+          </div>
         </div>
 
         {/* 3-Column Kanban Board */}
@@ -121,11 +235,11 @@ export const TaskBoardPage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Column 1: Todo */}
-            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {/* Column 1: Backlog & Todo */}
+            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3 min-h-[500px]">
               <div className="flex items-center justify-between font-bold text-xs text-[#171A2B] uppercase tracking-wider px-1">
-                <span>Backlog & Todo</span>
+                <span>Backlog & To Do</span>
                 <span className="bg-white px-2 py-0.5 rounded-full border border-[#E7E9F1] text-[#687086]">
                   {todoTasks.length}
                 </span>
@@ -140,15 +254,24 @@ export const TaskBoardPage = () => {
                   todoTasks.map((task) => (
                     <div
                       key={task.id}
-                      className="bg-white p-4 rounded-xl border border-[#E7E9F1] shadow-2xs space-y-2.5 hover:border-[#625BF6]/40 transition-colors"
+                      className="bg-white p-4 rounded-xl border border-[#E7E9F1] shadow-2xs space-y-2.5 hover:border-[#625BF6]/40 transition-all group"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-bold text-xs text-[#171A2B] leading-snug">
                           {task.title}
                         </span>
-                        <Badge variant={task.priority === 'critical' ? 'critical' : task.priority === 'high' ? 'warning' : 'neutral'}>
-                          {task.priority}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleOpenEdit(task)}
+                            className="p-1 text-[#687086] hover:text-[#171A2B] rounded"
+                            title="Edit Task"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <Badge variant={task.priority === 'critical' || task.priority === 'urgent' ? 'critical' : task.priority === 'high' ? 'warning' : 'neutral'}>
+                            {task.priority}
+                          </Badge>
+                        </div>
                       </div>
 
                       {task.is_critical_path && (
@@ -162,17 +285,19 @@ export const TaskBoardPage = () => {
                       )}
 
                       <div className="pt-2 border-t border-[#E7E9F1] flex items-center justify-between text-[10px] text-[#687086]">
-                        <span>👤 {task.assignee_name || 'Unassigned'}</span>
-                        <span className={task.is_overdue ? 'text-[#D9485F] font-bold' : ''}>
+                        <span>👤 {task.assignee_name || <em className="text-[#D9485F]">Unassigned</em>}</span>
+                        <span className={task.is_overdue ? 'text-[#D9485F] font-bold flex items-center gap-1' : ''}>
+                          {task.is_overdue && <AlertTriangle className="w-3 h-3 text-[#D9485F]" />}
                           📅 {task.due_date}
                         </span>
                       </div>
 
                       <button
                         onClick={() => handleUpdateStatus(task.id, 'in_progress')}
-                        className="w-full mt-1 py-1.5 bg-[#F7F8FC] hover:bg-[#625BF6]/10 hover:text-[#625BF6] text-[#687086] rounded-lg text-[11px] font-semibold transition-colors"
+                        className="w-full mt-1 py-1.5 bg-[#F7F8FC] hover:bg-[#625BF6]/10 hover:text-[#625BF6] text-[#687086] rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1"
                       >
-                        Start Working →
+                        <span>Start Working</span>
+                        <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                   ))
@@ -181,7 +306,7 @@ export const TaskBoardPage = () => {
             </div>
 
             {/* Column 2: In Progress */}
-            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3">
+            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3 min-h-[500px]">
               <div className="flex items-center justify-between font-bold text-xs text-[#171A2B] uppercase tracking-wider px-1">
                 <span>In Progress</span>
                 <span className="bg-white px-2 py-0.5 rounded-full border border-[#E7E9F1] text-[#687086]">
@@ -192,21 +317,30 @@ export const TaskBoardPage = () => {
               <div className="space-y-3 flex-1 overflow-y-auto">
                 {inProgressTasks.length === 0 ? (
                   <div className="p-8 text-center text-xs text-[#687086] border border-dashed border-[#E7E9F1] rounded-xl bg-white/50">
-                    No tasks in progress
+                    No tasks currently active
                   </div>
                 ) : (
                   inProgressTasks.map((task) => (
                     <div
                       key={task.id}
-                      className="bg-white p-4 rounded-xl border border-[#625BF6]/30 shadow-2xs space-y-2.5"
+                      className="bg-white p-4 rounded-xl border border-[#625BF6]/40 shadow-2xs space-y-2.5"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-bold text-xs text-[#171A2B] leading-snug">
                           {task.title}
                         </span>
-                        <Badge variant={task.priority === 'critical' ? 'critical' : 'warning'}>
-                          {task.priority}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleOpenEdit(task)}
+                            className="p-1 text-[#687086] hover:text-[#171A2B] rounded"
+                            title="Edit Task"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <Badge variant={task.priority === 'critical' || task.priority === 'urgent' ? 'critical' : 'warning'}>
+                            {task.priority}
+                          </Badge>
+                        </div>
                       </div>
 
                       {task.is_critical_path && (
@@ -226,18 +360,18 @@ export const TaskBoardPage = () => {
                         </span>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-1">
                         <button
                           onClick={() => handleUpdateStatus(task.id, 'todo')}
-                          className="flex-1 py-1.5 bg-[#F7F8FC] hover:bg-[#E7E9F1] text-[#687086] rounded-lg text-[10px] font-semibold"
+                          className="flex-1 py-1.5 bg-[#F7F8FC] hover:bg-[#E7E9F1] text-[#687086] rounded-lg text-[10px] font-semibold transition-colors"
                         >
-                          ← Back
+                          ← Backlog
                         </button>
                         <button
                           onClick={() => handleUpdateStatus(task.id, 'done')}
                           className="flex-1 py-1.5 bg-[#16856B]/10 hover:bg-[#16856B]/20 text-[#16856B] rounded-lg text-[10px] font-bold transition-colors"
                         >
-                          Done ✓
+                          Mark Done ✓
                         </button>
                       </div>
                     </div>
@@ -247,10 +381,10 @@ export const TaskBoardPage = () => {
             </div>
 
             {/* Column 3: Done */}
-            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3">
+            <div className="bg-[#F7F8FC] p-4 rounded-2xl border border-[#E7E9F1] flex flex-col space-y-3 min-h-[500px]">
               <div className="flex items-center justify-between font-bold text-xs text-[#171A2B] uppercase tracking-wider px-1">
-                <span>Completed</span>
-                <span className="bg-white px-2 py-0.5 rounded-full border border-[#E7E9F1] text-[#687086]">
+                <span>Completed / Done</span>
+                <span className="bg-white px-2 py-0.5 rounded-full border border-[#E7E9F1] text-[#16856B]">
                   {doneTasks.length}
                 </span>
               </div>
@@ -258,27 +392,30 @@ export const TaskBoardPage = () => {
               <div className="space-y-3 flex-1 overflow-y-auto">
                 {doneTasks.length === 0 ? (
                   <div className="p-8 text-center text-xs text-[#687086] border border-dashed border-[#E7E9F1] rounded-xl bg-white/50">
-                    No completed tasks
+                    No completed tasks yet
                   </div>
                 ) : (
                   doneTasks.map((task) => (
                     <div
                       key={task.id}
-                      className="bg-white/90 p-4 rounded-xl border border-[#E7E9F1] shadow-2xs space-y-2 opacity-90"
+                      className="bg-white p-4 rounded-xl border border-[#16856B]/30 shadow-2xs space-y-2 opacity-85"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-bold text-xs text-[#687086] line-through">
+                        <span className="font-bold text-xs text-[#171A2B] line-through leading-snug">
                           {task.title}
                         </span>
-                        <Badge variant="active">Done</Badge>
+                        <CheckCircle2 className="w-4 h-4 text-[#16856B] shrink-0" />
                       </div>
-                      <div className="text-[10px] text-[#687086]">Owner: {task.assignee_name}</div>
-                      <button
-                        onClick={() => handleUpdateStatus(task.id, 'in_progress')}
-                        className="w-full mt-1 py-1 bg-[#F7F8FC] hover:bg-[#E7E9F1] text-[#687086] rounded-lg text-[10px] font-medium"
-                      >
-                        Reopen Task
-                      </button>
+
+                      <div className="pt-2 border-t border-[#E7E9F1] flex items-center justify-between text-[10px] text-[#687086]">
+                        <span>👤 {task.assignee_name || 'Volunteer'}</span>
+                        <button
+                          onClick={() => handleUpdateStatus(task.id, 'in_progress')}
+                          className="text-[#625BF6] hover:underline font-semibold"
+                        >
+                          Reopen ↺
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -287,45 +424,56 @@ export const TaskBoardPage = () => {
           </div>
         )}
 
-        {/* Create Task Modal */}
-        {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#E7E9F1]">
-              <div className="flex justify-between items-center border-b border-[#E7E9F1] pb-3">
-                <h3 className="font-bold text-sm text-[#171A2B]">Add Sprint Task</h3>
+        {/* Create / Edit Task Modal */}
+        {(createModalOpen || editModalOpen) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
+                  <Kanban className="w-4 h-4 text-[#625BF6]" />
+                  <span>{createModalOpen ? 'Create Sprint Task' : 'Edit Sprint Task'}</span>
+                </h3>
                 <button
-                  onClick={() => setModalOpen(false)}
-                  className="p-1 rounded-lg text-[#687086] hover:text-[#171A2B] hover:bg-[#F7F8FC]"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    setEditModalOpen(false);
+                  }}
+                  className="text-[#687086] hover:text-[#171A2B]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
+              <form onSubmit={createModalOpen ? handleCreateTask : handleUpdateTask} className="space-y-4 text-xs">
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">
-                    Task Title *
-                  </label>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Task Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Set up stage audio microphones"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    value={formState.title}
+                    onChange={(e) => setFormState({ ...formState, title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">
-                    Related Event (Optional)
-                  </label>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={formState.description}
+                    onChange={(e) => setFormState({ ...formState, description: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Associated Event</label>
                   <select
-                    value={eventId}
-                    onChange={(e) => setEventId(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    value={formState.event_id}
+                    onChange={(e) => setFormState({ ...formState, event_id: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                   >
-                    <option value="">General Club Task</option>
+                    <option value="">General Club Operations</option>
                     {events.map((ev) => (
                       <option key={ev.id} value={ev.id}>
                         {ev.title}
@@ -336,41 +484,34 @@ export const TaskBoardPage = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Assignee Name
-                    </label>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Assignee Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Ananya Roy"
-                      value={assigneeName}
-                      onChange={(e) => setAssigneeName(e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                      placeholder="Ananya Roy"
+                      value={formState.assignee_name}
+                      onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                     />
                   </div>
-
                   <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Due Date *
-                    </label>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Due Date *</label>
                     <input
                       type="date"
                       required
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                      value={formState.due_date}
+                      onChange={(e) => setFormState({ ...formState, due_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Priority Level
-                    </label>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Priority</label>
                     <select
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                      value={formState.priority}
+                      onChange={(e) => setFormState({ ...formState, priority: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -378,47 +519,52 @@ export const TaskBoardPage = () => {
                       <option value="critical">Critical</option>
                     </select>
                   </div>
-
-                  <div className="flex items-center pt-5">
-                    <label className="flex items-center gap-2 font-semibold text-[#171A2B] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isCriticalPath}
-                        onChange={(e) => setIsCriticalPath(e.target.checked)}
-                        className="rounded text-[#625BF6] focus:ring-[#625BF6]"
-                      />
-                      <span>Critical Path Task</span>
-                    </label>
-                  </div>
+                  {editModalOpen && (
+                    <div>
+                      <label className="block font-semibold text-[#171A2B] mb-1">Status</label>
+                      <select
+                        value={formState.status}
+                        onChange={(e) => setFormState({ ...formState, status: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                      >
+                        <option value="todo">To Do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">
-                    Details & Instructions
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="critical-path-cb"
+                    checked={formState.is_critical_path}
+                    onChange={(e) => setFormState({ ...formState, is_critical_path: e.target.checked })}
+                    className="rounded text-[#625BF6]"
+                  />
+                  <label htmlFor="critical-path-cb" className="font-semibold text-[#171A2B] cursor-pointer">
+                    Flag as Critical-Path dependency (feeds Operational Risk Engine)
                   </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Specific delivery checklist..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
-                  ></textarea>
                 </div>
 
                 <div className="pt-2 flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setEditModalOpen(false);
+                    }}
                     className="flex-1 py-2.5 border border-[#E7E9F1] text-[#687086] rounded-xl font-semibold hover:bg-[#F7F8FC]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={createLoading}
+                    disabled={submitting}
                     className="flex-1 py-2.5 bg-[#625BF6] text-white rounded-xl font-semibold hover:bg-[#5048E5] transition-colors"
                   >
-                    {createLoading ? 'Saving...' : 'Create Task'}
+                    {submitting ? 'Saving...' : createModalOpen ? 'Create Task' : 'Update Task'}
                   </button>
                 </div>
               </form>

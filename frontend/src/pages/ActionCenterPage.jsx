@@ -109,11 +109,22 @@ export const ActionCenterPage = () => {
     }
   };
 
-  const filteredItems = (summary?.items || []).filter((item) => {
-    if (filterCategory !== 'ALL' && item.category !== filterCategory) return false;
-    if (filterStatus !== 'ALL' && item.status !== filterStatus) return false;
-    return true;
-  });
+  const [filterSeverity, setFilterSeverity] = useState('ALL');
+
+  const severityWeight = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+  const filteredItems = (summary?.items || [])
+    .filter((item) => {
+      if (filterCategory !== 'ALL' && item.category !== filterCategory) return false;
+      if (filterStatus !== 'ALL' && item.status !== filterStatus) return false;
+      if (filterSeverity !== 'ALL' && item.severity !== filterSeverity) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.status === 'resolved' && b.status !== 'resolved') return 1;
+      if (a.status !== 'resolved' && b.status === 'resolved') return -1;
+      return (severityWeight[b.severity] || 0) - (severityWeight[a.severity] || 0);
+    });
 
   return (
     <AppShell pageTitle="Centralized Action Center">
@@ -200,6 +211,27 @@ export const ActionCenterPage = () => {
                 }`}
               >
                 {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-[#687086]">Severity:</span>
+            {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((sev) => (
+              <button
+                key={sev}
+                onClick={() => setFilterSeverity(sev)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all ${
+                  filterSeverity === sev
+                    ? sev === 'CRITICAL'
+                      ? 'bg-[#D9485F] text-white shadow-xs'
+                      : sev === 'HIGH'
+                      ? 'bg-[#C97A16] text-white shadow-xs'
+                      : 'bg-[#171A2B] text-white'
+                    : 'bg-[#F7F8FC] text-[#687086] hover:bg-[#E7E9F1]'
+                }`}
+              >
+                {sev}
               </button>
             ))}
           </div>

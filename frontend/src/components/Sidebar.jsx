@@ -16,37 +16,46 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   FileSpreadsheet,
-  AlertOctagon
+  AlertOctagon,
+  Megaphone
 } from 'lucide-react';
 
 export const Sidebar = () => {
   const { role, isMember } = useAuth();
+  const isOrganizer = ['organizer', 'admin'].includes(role);
 
   const studentLinks = [
     { to: '/dashboard', label: 'My Dashboard', icon: LayoutDashboard },
-    { to: '/my-tickets', label: 'My Tickets & QR', icon: Ticket },
-    { to: '/membership', label: 'Membership Status', icon: CreditCard },
+    ...(!isOrganizer
+      ? [
+          { to: '/my-tickets', label: 'My Tickets & QR', icon: Ticket },
+          { to: '/membership', label: 'Membership Status', icon: CreditCard }
+        ]
+      : []),
     { to: '/my-orders', label: 'My Merch Orders', icon: ShoppingBag },
     { to: '/my-tasks', label: 'Volunteer Tasks', icon: CheckSquare },
     { to: '/expenses', label: 'Claim Reimbursement', icon: Receipt }
   ];
 
   const organizerLinks = [
-    { to: '/organizer/overview', label: 'Operations Hub', icon: LayoutDashboard },
+    { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard },
     { to: '/organizer/members', label: 'Member Roster', icon: Users },
     { to: '/organizer/events', label: 'Events & Capacity', icon: Calendar },
-    { to: '/organizer/scanner', label: 'QR Scanner Lane', icon: QrCode },
-    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
+    { to: '/organizer/scanner', label: 'Fast QR Scanner', icon: QrCode },
     { to: '/organizer/tasks', label: 'Task Board', icon: Kanban },
-    { to: '/risk', label: 'Risk Engine', icon: ShieldAlert, highlight: 'rose' }
+    { to: '/organizer/merch', label: 'Inventory & Sizes', icon: Box },
+    { to: '/organizer/announcements', label: 'Bulletins', icon: Megaphone || CheckSquare },
+    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+    { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
+    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
   ];
 
   const executiveLinks = [
     { to: '/ledger', label: 'Financial Ledger', icon: Receipt },
-    { to: '/expenses', label: 'Expense Review', icon: CheckSquare },
-    { to: '/risk', label: 'Operational Risk', icon: ShieldAlert, highlight: 'rose' },
-    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal, highlight: 'indigo' },
-    { to: '/handover', label: 'Handover Report', icon: FileSpreadsheet }
+    { to: '/action-center', label: 'Action Center', icon: CheckSquare },
+    { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
+    { to: '/organizer/reports', label: 'Reports', icon: FileSpreadsheet }
   ];
 
   return (
@@ -150,25 +159,27 @@ export const Sidebar = () => {
       </div>
 
       {/* Bottom Status Card */}
-      <div className="mt-6 pt-4 border-t border-slate-100">
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-          <div className="font-semibold text-slate-800 flex items-center justify-between">
-            <span>Membership Status</span>
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                isMember ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {isMember ? 'Active' : 'Standard'}
-            </span>
+      {!isOrganizer && (
+        <div className="mt-6 pt-4 border-t border-slate-100">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <div className="font-semibold text-slate-800 flex items-center justify-between">
+              <span>Membership Status</span>
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  isMember ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {isMember ? 'Active' : 'Standard'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              {isMember
+                ? 'Discounts unlocked on all events & merch.'
+                : 'Join membership to unlock 50% discount perks.'}
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">
-            {isMember
-              ? 'Discounts unlocked on all events & merch.'
-              : 'Join membership to unlock 50% discount perks.'}
-          </p>
         </div>
-      </div>
+      )}
     </aside>
   );
 };

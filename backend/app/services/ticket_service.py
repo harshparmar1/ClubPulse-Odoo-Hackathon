@@ -16,6 +16,9 @@ class TicketService:
         if not event.get("is_published", False):
             raise HTTPException(status_code=400, detail="Event is not published for booking.")
 
+        if event.get("is_ended", False) or event.get("status") == "ended":
+            raise HTTPException(status_code=400, detail="This event has concluded. Ticket bookings are closed.")
+
         # Check membership status for discount
         is_member = current_user.get("membership_status") == "active"
         unit_price = event["member_price_paise"] if is_member else event["non_member_price_paise"]

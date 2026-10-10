@@ -60,3 +60,27 @@ class AnnouncementService:
         }
         db["announcements"].insert_one(doc)
         return AnnouncementResponse(**{k: v for k, v in doc.items() if k != "_id"})
+
+    @staticmethod
+    def update_announcement(announcement_id: str, data: AnnouncementUpdate, current_user: dict) -> AnnouncementResponse:
+        db = get_database()
+        doc = db["announcements"].find_one({"id": announcement_id})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Announcement not found.")
+
+        update_data = {k: v for k, v in data.dict().items() if v is not None}
+        if update_data:
+            update_data["updated_at"] = datetime.utcnow().isoformat()
+            db["announcements"].update_one({"id": announcement_id}, {"$set": update_data})
+
+        updated = db["announcements"].find_one({"id": announcement_id})
+        return AnnouncementResponse(**{k: v for k, v in updated.items() if k != "_id"})
+
+    @staticmethod
+    def delete_announcement(announcement_id: str, current_user: dict) -> dict:
+        db = get_database()
+        res = db["announcements"].delete_one({"id": announcement_id})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Announcement not found.")
+        return {"success": True, "message": "Announcement deleted successfully."}
+

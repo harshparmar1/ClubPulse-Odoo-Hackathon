@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api, formatINR } from '../api/client';
-import { Users, Search, Filter, RefreshCw, CheckCircle2, ShieldCheck, Mail, Phone, Calendar } from 'lucide-react';
+import {
+  Users,
+  Search,
+  Filter,
+  RefreshCw,
+  CheckCircle2,
+  ShieldCheck,
+  Mail,
+  Phone,
+  Calendar,
+  Plus,
+  X,
+  CreditCard
+} from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
@@ -13,8 +26,25 @@ export const MembersManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [renewLoadingId, setRenewLoadingId] = useState(null);
 
+  // Modals
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [renewModalMember, setRenewModalMember] = useState(null);
+  const [paymentRef, setPaymentRef] = useState('');
+
+  // Form state
+  const [formState, setFormState] = useState({
+    full_name: '',
+    email: '',
+    roll_number: '',
+    department: 'Computer Science',
+    membership_type: 'annual',
+    dues_paid_inr: 500
+  });
+  const [submitting, setSubmitting] = useState(false);
+
   const fetchMembers = async () => {
     try {
+      setLoading(true);
       const data = await api.get('/api/members');
       setMembers(data || []);
     } catch (err) {
@@ -28,18 +58,51 @@ export const MembersManagementPage = () => {
     fetchMembers();
   }, []);
 
-  const handleRenewMember = async (memberId) => {
-    setRenewLoadingId(memberId);
+  const handleRenewMember = async (e) => {
+    e.preventDefault();
+    if (!renewModalMember) return;
+    setRenewLoadingId(renewModalMember.id);
     try {
-      await api.post(`/api/members/${memberId}/renew`, {
+      await api.post(`/api/members/${renewModalMember.id}/renew`, {
         duration_months: 12,
-        payment_reference: `MANUAL-RENEW-${Date.now()}`
+        payment_reference: paymentRef || `RENEW-CASH-${Date.now()}`
       });
+      setRenewModalMember(null);
+      setPaymentRef('');
       fetchMembers();
     } catch (err) {
       alert(`Renewal failed: ${err.message}`);
     } finally {
       setRenewLoadingId(null);
+    }
+  };
+
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post('/api/members', {
+        full_name: formState.full_name,
+        email: formState.email,
+        roll_number: formState.roll_number,
+        department: formState.department,
+        membership_type: formState.membership_type,
+        dues_paid_paise: Math.round(Number(formState.dues_paid_inr) * 100)
+      });
+      setAddModalOpen(false);
+      setFormState({
+        full_name: '',
+        email: '',
+        roll_number: '',
+        department: 'Computer Science',
+        membership_type: 'annual',
+        dues_paid_inr: 500
+      });
+      fetchMembers();
+    } catch (err) {
+      alert(`Failed to add member: ${err.message}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -53,7 +116,7 @@ export const MembersManagementPage = () => {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout pageTitle="Member Roster & Registry">
       <div className="space-y-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -65,9 +128,17 @@ export const MembersManagementPage = () => {
               Member Roster & Registry
             </h1>
             <p className="text-xs text-[#687086] mt-1">
-              Verify student dues, departments, validity terms, and manual renewals.
+              Verify student dues, departments, validity terms, and verified renewals.
             </p>
           </div>
+
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Member</span>
+          </button>
         </div>
 
         {/* Filter Bar */}
@@ -121,7 +192,7 @@ export const MembersManagementPage = () => {
                 <thead className="bg-[#F7F8FC] text-[#687086] uppercase font-bold border-b border-[#E7E9F1] text-[10px] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Member Info</th>
-                    <th className="py-3.5 px-4">Roll / ID</th>
+                    <th className="py-3.5 px-4">Roll / Student ID</th>
                     <th className="py-3.5 px-4">Department</th>
                     <th className="py-3.5 px-4">Status</th>
                     <th className="py-3.5 px-4">Valid Until</th>
@@ -144,7 +215,7 @@ export const MembersManagementPage = () => {
                       </td>
                       <td className="py-3.5 px-4 text-[#687086]">{mem.department || 'General'}</td>
                       <td className="py-3.5 px-4">
-                        <Badge variant={mem.status === 'active' ? 'active' : mem.status === 'expired' ? 'critical' : 'warning'}>
+                        <Badge variant={mem.status === 'active' ? 'positive' : mem.status === 'expired' ? 'critical' : 'warning'}>
                           {mem.status}
                         </Badge>
                       </td>
@@ -156,11 +227,13 @@ export const MembersManagementPage = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <button
-                          onClick={() => handleRenewMember(mem.id)}
-                          disabled={renewLoadingId === mem.id}
-                          className="px-3 py-1.5 rounded-xl border border-[#E7E9F1] hover:border-[#625BF6] hover:bg-[#625BF6]/5 font-semibold text-[#625BF6] transition-colors disabled:opacity-50"
+                          onClick={() => {
+                            setRenewModalMember(mem);
+                            setPaymentRef(`RENEW-REF-${Date.now().toString().slice(-6)}`);
+                          }}
+                          className="px-3 py-1.5 rounded-xl border border-[#E7E9F1] hover:border-[#625BF6] hover:bg-[#625BF6]/5 font-semibold text-[#625BF6] transition-colors"
                         >
-                          {renewLoadingId === mem.id ? 'Renewing...' : 'Renew 1 Yr'}
+                          Renew Pass
                         </button>
                       </td>
                     </tr>
@@ -170,6 +243,159 @@ export const MembersManagementPage = () => {
             </div>
           )}
         </div>
+
+        {/* Add Member Modal */}
+        {addModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#625BF6]" />
+                  <span>Register New Student Member</span>
+                </h3>
+                <button onClick={() => setAddModalOpen(false)} className="text-[#687086] hover:text-[#171A2B]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddMember} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Full Student Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Vikram Malhotra"
+                    value={formState.full_name}
+                    onChange={(e) => setFormState({ ...formState, full_name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="student@clubpulse.edu"
+                      value={formState.email}
+                      onChange={(e) => setFormState({ ...formState, email: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Roll / ID *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="STU-2026-099"
+                      value={formState.roll_number}
+                      onChange={(e) => setFormState({ ...formState, roll_number: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={formState.department}
+                      onChange={(e) => setFormState({ ...formState, department: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">Annual Dues Paid (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formState.dues_paid_inr}
+                      onChange={(e) => setFormState({ ...formState, dues_paid_inr: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#E7E9F1] flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddModalOpen(false)}
+                    className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold rounded-xl"
+                  >
+                    {submitting ? 'Registering...' : 'Enroll Student'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Renew Member Modal */}
+        {renewModalMember && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-[#E7E9F1] space-y-4">
+              <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">
+                <h3 className="text-base font-bold text-[#171A2B] flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#16856B]" />
+                  <span>Renew Pass for 1 Year</span>
+                </h3>
+                <button onClick={() => setRenewModalMember(null)} className="text-[#687086] hover:text-[#171A2B]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="text-xs text-[#687086]">
+                Renewing annual pass for <strong className="text-[#171A2B]">{renewModalMember.full_name}</strong> ({renewModalMember.email}).
+              </div>
+
+              <form onSubmit={handleRenewMember} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Payment Reference / Receipt ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={paymentRef}
+                    onChange={(e) => setPaymentRef(e.target.value)}
+                    placeholder="e.g. UPI-TXN-98234 or CASH-REC-01"
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#16856B]/10 border border-[#16856B]/20 text-[11px] text-[#16856B]">
+                  Validates duration extension (+12 months) and records transaction on ledger.
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRenewModalMember(null)}
+                    className="px-4 py-2 border rounded-xl text-[#687086] hover:bg-[#F7F8FC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={renewLoadingId === renewModalMember.id}
+                    className="px-5 py-2 bg-[#16856B] hover:bg-[#13745D] text-white font-semibold rounded-xl"
+                  >
+                    {renewLoadingId === renewModalMember.id ? 'Processing...' : 'Confirm Renewal'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

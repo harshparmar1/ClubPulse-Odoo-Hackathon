@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
-// Pages
+// Public & Community Pages
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -11,25 +11,31 @@ import { EventsPage } from './pages/EventsPage';
 import { MerchCatalogPage } from './pages/MerchCatalogPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 
+// Student Pages
 import { StudentDashboard } from './pages/StudentDashboard';
 import { MyTicketsPage } from './pages/MyTicketsPage';
 import { MembershipPage } from './pages/MembershipPage';
 import { StudentTasksPage } from './pages/StudentTasksPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 
+// Organizer Command Center & Management
 import { OrganizerOverview } from './pages/OrganizerOverview';
 import { MembersManagementPage } from './pages/MembersManagementPage';
 import { EventsManagementPage } from './pages/EventsManagementPage';
+import { CreateEventPage } from './pages/CreateEventPage';
+import { EventDetailsPage } from './pages/EventDetailsPage';
+import { EditEventPage } from './pages/EditEventPage';
 import { QRScannerPage } from './pages/QRScannerPage';
 import { MerchManagementPage } from './pages/MerchManagementPage';
 import { TaskBoardPage } from './pages/TaskBoardPage';
+import { OrganizerAnnouncementsPage } from './pages/OrganizerAnnouncementsPage';
 
-import { RiskWorkspacePage } from './pages/RiskWorkspacePage';
-import { SimulatorPage } from './pages/SimulatorPage';
-import { FinancialLedgerPage } from './pages/FinancialLedgerPage';
-import { HandoverReportPage } from './pages/HandoverReportPage';
-import { EventReadinessPage } from './pages/EventReadinessPage';
+// Operations, Intelligence & Treasury
 import { ActionCenterPage } from './pages/ActionCenterPage';
+import { EventBudgetsPage } from './pages/EventBudgetsPage';
+import { SimulatorPage } from './pages/SimulatorPage';
+import { OrganizerReportsPage } from './pages/OrganizerReportsPage';
+import { FinancialLedgerPage } from './pages/FinancialLedgerPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 
 export default function App() {
@@ -95,7 +101,9 @@ export default function App() {
             }
           />
 
-          {/* Organizer Operations (Organizer, Treasurer, Admin) */}
+          {/* ============================================================== */}
+          {/* 1. ORGANIZER NAVIGATION: Overview                              */}
+          {/* ============================================================== */}
           <Route
             path="/organizer/overview"
             element={
@@ -104,6 +112,10 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ============================================================== */}
+          {/* 1. ORGANIZER NAVIGATION: Manage                                */}
+          {/* ============================================================== */}
           <Route
             path="/organizer/members"
             element={
@@ -115,8 +127,32 @@ export default function App() {
           <Route
             path="/organizer/events"
             element={
-              <ProtectedRoute allowedRoles={['organizer', 'admin']}>
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
                 <EventsManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/events/new"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <CreateEventPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/events/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <EditEventPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/events/:id"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <EventDetailsPage />
               </ProtectedRoute>
             }
           />
@@ -129,6 +165,14 @@ export default function App() {
             }
           />
           <Route
+            path="/organizer/tasks"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <TaskBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/organizer/merch"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
@@ -137,20 +181,30 @@ export default function App() {
             }
           />
           <Route
-            path="/organizer/tasks"
+            path="/organizer/announcements"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
-                <TaskBoardPage />
+                <OrganizerAnnouncementsPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Executive & Signature Modules */}
+          {/* ============================================================== */}
+          {/* 1. ORGANIZER NAVIGATION: Operations                            */}
+          {/* ============================================================== */}
           <Route
-            path="/risk"
+            path="/action-center"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
-                <RiskWorkspacePage />
+                <ActionCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organizer/budgets"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <EventBudgetsPage />
               </ProtectedRoute>
             }
           />
@@ -163,34 +217,22 @@ export default function App() {
             }
           />
           <Route
+            path="/organizer/reports"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <OrganizerReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ============================================================== */}
+          {/* Treasury & Executive Audit Routes                              */}
+          {/* ============================================================== */}
+          <Route
             path="/ledger"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
                 <FinancialLedgerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/handover"
-            element={
-              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
-                <HandoverReportPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/action-center"
-            element={
-              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
-                <ActionCenterPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/readiness"
-            element={
-              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
-                <EventReadinessPage />
               </ProtectedRoute>
             }
           />
@@ -202,6 +244,16 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ============================================================== */}
+          {/* Backward Compatibility Redirects & Route Aliases               */}
+          {/* ============================================================== */}
+          {/* /risk -> Consolidates into Action Center                       */}
+          <Route path="/risk" element={<Navigate to="/action-center" replace />} />
+          {/* /readiness -> Consolidates into Events Hub                     */}
+          <Route path="/readiness" element={<Navigate to="/organizer/events" replace />} />
+          {/* /handover -> Consolidates into Organizer Reports               */}
+          <Route path="/handover" element={<Navigate to="/organizer/reports" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
