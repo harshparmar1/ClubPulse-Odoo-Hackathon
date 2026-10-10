@@ -5,6 +5,7 @@ import { Calendar, MapPin, Users, Search, Tag, Sparkles, Ticket } from 'lucide-r
 import { Navbar } from '../components/Navbar';
 import { Badge } from '../components/Badge';
 import { EventBookingModal } from '../components/EventBookingModal';
+import { EmptyState } from '../components/EmptyState';
 
 export const EventsPage = () => {
   const { isMember } = useAuth();
@@ -41,21 +42,21 @@ export const EventsPage = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8 flex-1">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Chapter Calendar 2026</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-3xl font-bold tracking-tight text-[#171A2B]">
               Upcoming Organization Events
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-[#687086] mt-1 max-w-xl">
               Register for hackathons, technical masterclasses, and networking banquets. 
               Active members automatically unlock preferential seating and ticket discounts.
             </p>
@@ -63,13 +64,13 @@ export const EventsPage = () => {
 
           {/* Search Box */}
           <div className="w-full md:w-72 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-[#687086] absolute left-3 top-3" />
             <input
               type="text"
               placeholder="Search event, topic, venue..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-[#E7E9F1] rounded-xl bg-white text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6] shadow-2xs"
             />
           </div>
         </div>
@@ -80,10 +81,10 @@ export const EventsPage = () => {
             <button
               key={tag}
               onClick={() => setSelectedTag(tag)}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 ${
                 selectedTag === tag
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-[#625BF6] text-white shadow-2xs'
+                  : 'bg-white text-[#687086] border border-[#E7E9F1] hover:bg-[#F7F8FC]'
               }`}
             >
               {tag}
@@ -95,14 +96,16 @@ export const EventsPage = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white rounded-2xl h-80 animate-pulse border border-slate-200"></div>
+              <div key={n} className="bg-white rounded-2xl h-80 animate-pulse border border-[#E7E9F1]"></div>
             ))}
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 max-w-md mx-auto">
-            <Ticket className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-800">No events matched your search</h3>
-            <p className="text-xs text-slate-500 mt-1">Try clearing your filters or check back later.</p>
+          <div className="py-12 bg-white rounded-2xl border border-[#E7E9F1]">
+            <EmptyState
+              icon={Ticket}
+              title="No events match your criteria"
+              description="Try clearing your search query or selecting a different tag."
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -115,10 +118,10 @@ export const EventsPage = () => {
               return (
                 <div
                   key={evt.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-200 transition-all flex flex-col overflow-hidden group"
+                  className="bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs hover:shadow-md hover:border-[#625BF6]/40 transition-all flex flex-col overflow-hidden group"
                 >
                   {/* Banner */}
-                  <div className="h-44 w-full bg-slate-100 relative overflow-hidden">
+                  <div className="h-44 w-full bg-[#F7F8FC] relative overflow-hidden">
                     <img
                       src={evt.banner_url || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=80'}
                       alt={evt.title}
@@ -128,7 +131,7 @@ export const EventsPage = () => {
                       {isFull ? (
                         <Badge variant="critical">Sold Out</Badge>
                       ) : (
-                        <Badge variant="primary">{capacity - booked} Seats Left</Badge>
+                        <Badge variant="active">{capacity - booked} Seats Left</Badge>
                       )}
                     </div>
                   </div>
@@ -138,43 +141,43 @@ export const EventsPage = () => {
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1">
                         {evt.tags?.map((t) => (
-                          <span key={t} className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                          <span key={t} className="text-[10px] font-semibold text-[#687086] bg-[#F7F8FC] border border-[#E7E9F1] px-2 py-0.5 rounded-md">
                             #{t}
                           </span>
                         ))}
                       </div>
 
-                      <h3 className="font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      <h3 className="font-bold text-base text-[#171A2B] group-hover:text-[#625BF6] transition-colors line-clamp-1">
                         {evt.title}
                       </h3>
 
-                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-[#687086] line-clamp-2 leading-relaxed">
                         {evt.description}
                       </p>
 
-                      <div className="pt-2 text-xs text-slate-600 space-y-1">
+                      <div className="pt-2 text-xs text-[#687086] space-y-1">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                          <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
                           <span>{evt.event_date}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                          <MapPin className="w-3.5 h-3.5 text-[#625BF6]" />
                           <span>{evt.venue}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Capacity & Price Bottom */}
-                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                    <div className="pt-3 border-t border-[#E7E9F1] space-y-3">
                       <div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                        <div className="flex items-center justify-between text-[11px] text-[#687086] mb-1">
                           <span>Capacity status</span>
                           <span>{booked} / {capacity} ({fillPercentage}%)</span>
                         </div>
-                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="w-full bg-[#F7F8FC] border border-[#E7E9F1] h-1.5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              fillPercentage >= 90 ? 'bg-amber-500' : 'bg-teal-500'
+                              fillPercentage >= 90 ? 'bg-[#D98A18]' : 'bg-[#16856B]'
                             }`}
                             style={{ width: `${fillPercentage}%` }}
                           ></div>
@@ -183,15 +186,15 @@ export const EventsPage = () => {
 
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-[10px] font-medium text-slate-400">Ticket Price</div>
-                          <div className="text-xs font-bold text-slate-800">
+                          <div className="text-[10px] font-medium text-[#687086]">Ticket Price</div>
+                          <div className="text-xs font-bold text-[#171A2B]">
                             {evt.member_price_paise === 0 ? (
-                              <span className="text-teal-600 font-extrabold">Free for Members</span>
+                              <span className="text-[#16856B] font-bold">Free for Members</span>
                             ) : (
                               <span>{formatINR(evt.member_price_paise)} (Members)</span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[10px] text-[#687086]">
                             {formatINR(evt.non_member_price_paise)} Standard
                           </div>
                         </div>
@@ -199,7 +202,7 @@ export const EventsPage = () => {
                         <button
                           onClick={() => setSelectedEvent(evt)}
                           disabled={isFull}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                          className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors"
                         >
                           {isFull ? 'Sold Out' : 'Register Pass'}
                         </button>

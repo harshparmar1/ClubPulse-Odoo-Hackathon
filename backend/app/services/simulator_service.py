@@ -143,6 +143,67 @@ class SimulatorService:
                 "Proposed scenario is financially viable with healthy reserve buffer headroom."
             )
 
+        # -----------------------------------------------------------------
+        # Volunteer Coverage Impact & Operational Risks
+        # -----------------------------------------------------------------
+        needed_volunteers = max(3, int(p_expected_attendees / 20))
+        baseline_volunteers = 5
+        if data.event_id and event:
+            baseline_volunteers = int(event.get("required_volunteer_count", 5))
+
+        vol_delta = needed_volunteers - baseline_volunteers
+        volunteer_impact = {
+            "needed_volunteers": needed_volunteers,
+            "baseline_volunteers": baseline_volunteers,
+            "volunteer_gap": max(0, vol_delta),
+            "ratio_attendees_per_volunteer": round(p_expected_attendees / needed_volunteers, 1) if needed_volunteers > 0 else 0,
+            "assessment": "Critical deficit" if vol_delta >= 4 else ("Minor expansion required" if vol_delta > 0 else "Fully covered")
+        }
+
+        operational_risks: List[str] = []
+        if vol_delta >= 3:
+            operational_risks.append(f"Crowd safety & check-in queue bottleneck: {needed_volunteers} volunteers required ({vol_delta} above current baseline).")
+        if p_reserve_breached:
+            operational_risks.append("Club emergency reserve deficit risk if actual turnout dips below 80%.")
+        if p_cap > 250:
+            operational_risks.append("High venue density: Emergency egress and hardware power distribution require security clearance.")
+
+        # -----------------------------------------------------------------
+        # Deterministic Sensitivity Drivers (Elasticity ranking)
+        # -----------------------------------------------------------------
+        # Driver 1: Attendance rate swing +/- 10%
+        att_delta_rev = int((0.10 * p_cap) * ((p_mem_ratio * p_mem_p) + ((1 - p_mem_ratio) * p_non_p)))
+        # Driver 2: Non-member price swing +/- ₹50 (5000 paise)
+        price_delta_rev = int(p_non_member_attendees * 5000)
+        # Driver 3: Expense inflation +/- 15%
+        exp_delta_cost = int(p_exp * 0.15)
+
+        drivers = [
+            {
+                "driver": "Attendance Yield (±10%)",
+                "impact_paise": att_delta_rev,
+                "impact_inr": att_delta_rev / 100,
+                "direction": "High Sensitivity",
+                "description": "Each 10% shift in attendee turnout changes net surplus by ₹{:.2f}".format(att_delta_rev / 100)
+            },
+            {
+                "driver": "Non-Member Ticket Price (±₹50)",
+                "impact_paise": price_delta_rev,
+                "impact_inr": price_delta_rev / 100,
+                "direction": "Moderate Sensitivity",
+                "description": "Adjusting non-member admission price by ₹50 shifts revenue by ₹{:.2f}".format(price_delta_rev / 100)
+            },
+            {
+                "driver": "Expense Variance (+15% Overrun)",
+                "impact_paise": exp_delta_cost,
+                "impact_inr": exp_delta_cost / 100,
+                "direction": "High Vulnerability",
+                "description": "A 15% budget overrun increases costs by ₹{:.2f}".format(exp_delta_cost / 100)
+            }
+        ]
+        # Sort by impact_paise descending
+        drivers.sort(key=lambda d: d["impact_paise"], reverse=True)
+
         assumptions_text = (
             f"Model assumes {int(p_att_rate * 100)}% attendance yield across {p_cap} capacity, "
             f"with {int(p_mem_ratio * 100)}% member participation paying ₹{p_mem_p / 100:.2f} "
@@ -155,6 +216,9 @@ class SimulatorService:
             current_plan=current_plan_metrics,
             proposed_scenario=proposed_scenario,
             variance=variance,
+            volunteer_impact=volunteer_impact,
+            key_sensitivity_drivers=drivers,
+            operational_risks=operational_risks,
             warnings=warnings,
             recommendations=recommendations,
             assumptions_statement=assumptions_text,

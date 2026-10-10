@@ -7,13 +7,16 @@ router = APIRouter(tags=["Health & System"])
 
 @router.get("/api/health")
 def health_check():
+    if DatabaseManager.is_mock:
+        DatabaseManager.close()
     db = DatabaseManager.get_db()
     is_mock = DatabaseManager.is_mock
     return {
         "status": "healthy",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
-        "database": "mock_in_memory" if is_mock else "mongodb_connected",
+        "database": "mock_in_memory" if is_mock else "mongodb_atlas_connected",
+        "database_name": settings.MONGODB_DB_NAME,
         "environment": settings.ENVIRONMENT
     }
 

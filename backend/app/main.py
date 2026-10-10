@@ -11,7 +11,8 @@ from app.database.seed_data import seed_database
 from app.routers import (
     health, auth, members, events, tickets,
     products, orders, announcements, tasks,
-    transactions, expenses, risk, simulator, reports
+    transactions, expenses, risk, simulator, reports,
+    readiness, correlation, actions, notifications, audit
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ logger = logging.getLogger("clubpulse.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize DB and ensure demo data is populated
+    # Startup: Initialize MongoDB Atlas connection and ensure demo data is populated
     logger.info("Initializing ClubPulse application...")
     try:
         db = DatabaseManager.get_db()
@@ -66,6 +67,11 @@ app.include_router(expenses.router)
 app.include_router(risk.router)
 app.include_router(simulator.router)
 app.include_router(reports.router)
+app.include_router(readiness.router)
+app.include_router(correlation.router)
+app.include_router(actions.router)
+app.include_router(notifications.router)
+app.include_router(audit.router)
 
 @app.get("/", include_in_schema=False)
 def root():

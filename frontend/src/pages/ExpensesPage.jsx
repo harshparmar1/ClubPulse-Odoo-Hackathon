@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Receipt, Plus, CheckCircle2, XCircle, Clock, Check, X, AlertCircle } from 'lucide-react';
+import { Receipt, Plus, CheckCircle2, XCircle, Clock, Check, X, AlertCircle, Sparkles } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { EmptyState } from '../components/EmptyState';
 
 export const ExpensesPage = () => {
   const { user, role } = useAuth();
@@ -76,212 +78,215 @@ export const ExpensesPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
               <Receipt className="w-3.5 h-3.5" />
               <span>Reimbursements & Claims</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl font-bold text-[#171A2B] tracking-tight">
               Expense Reimbursement Claims
             </h1>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-[#687086] mt-1">
               Submit out-of-pocket receipts for chapter event supplies or review pending volunteer claims.
             </p>
           </div>
 
           <button
             onClick={() => setClaimModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+            className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Submit New Claim</span>
           </button>
         </div>
 
-        {/* Expenses List */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Claim ID & Date</th>
-                  <th className="py-3 px-4">Claimant</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Description</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Amount</th>
-                  {isTreasurerOrAdmin && <th className="py-3 px-4 text-right">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {expenses.length === 0 ? (
+        {/* Expenses Table */}
+        <div className="bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs overflow-hidden">
+          {loading ? (
+            <div className="p-6">
+              <LoadingSkeleton lines={5} />
+            </div>
+          ) : expenses.length === 0 ? (
+            <div className="py-12">
+              <EmptyState
+                icon={Receipt}
+                title="No expense reimbursement claims found"
+                description="When volunteers or organizers submit out-of-pocket receipts, they will appear here for review."
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F7F8FC] text-[#687086] uppercase font-bold border-b border-[#E7E9F1] text-[10px] tracking-wider">
                   <tr>
-                    <td colSpan={isTreasurerOrAdmin ? 7 : 6} className="py-8 text-center text-slate-400">
-                      No expense reimbursement claims found.
-                    </td>
+                    <th className="py-3.5 px-4">Claim ID & Date</th>
+                    <th className="py-3.5 px-4">Claimant</th>
+                    <th className="py-3.5 px-4">Category</th>
+                    <th className="py-3.5 px-4">Description</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Amount</th>
+                    {isTreasurerOrAdmin && <th className="py-3.5 px-4 text-right">Actions</th>}
                   </tr>
-                ) : (
-                  expenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-600">
-                        <div>#{exp.id.slice(-6).toUpperCase()}</div>
-                        <div className="text-[10px] text-slate-400">{exp.created_at?.slice(0, 10)}</div>
+                </thead>
+                <tbody className="divide-y divide-[#E7E9F1] font-medium text-[#171A2B]">
+                  {expenses.map((exp) => (
+                    <tr key={exp.id} className="hover:bg-[#F7F8FC]/60 transition-colors">
+                      <td className="py-3.5 px-4 font-mono text-[#687086]">
+                        <div className="text-[#171A2B] font-bold">#{exp.id.slice(-6).toUpperCase()}</div>
+                        <div className="text-[10px] text-[#687086]">{exp.created_at?.slice(0, 10)}</div>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{exp.user_name}</td>
-                      <td className="py-3 px-4 capitalize">{exp.category}</td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate">{exp.description}</td>
-                      <td className="py-3 px-4">
+                      <td className="py-3.5 px-4 font-semibold text-[#171A2B]">{exp.user_name}</td>
+                      <td className="py-3.5 px-4 capitalize text-[#687086]">{exp.category}</td>
+                      <td className="py-3.5 px-4 text-[#171A2B] max-w-xs truncate">{exp.description}</td>
+                      <td className="py-3.5 px-4">
                         <Badge
                           variant={
                             exp.status === 'disbursed'
                               ? 'active'
                               : exp.status === 'approved'
-                              ? 'warning'
+                              ? 'accent'
                               : exp.status === 'rejected'
                               ? 'critical'
-                              : 'neutral'
+                              : 'warning'
                           }
                         >
                           {exp.status}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 font-extrabold text-sm text-slate-900">
+                      <td className="py-3.5 px-4 font-bold text-sm text-[#171A2B]">
                         {formatINR(exp.amount_paise)}
                       </td>
                       {isTreasurerOrAdmin && (
-                        <td className="py-3 px-4 text-right space-x-1">
-                          {exp.status === 'pending' && (
-                            <>
+                        <td className="py-3.5 px-4 text-right">
+                          {exp.status === 'submitted' && (
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleReview(exp.id, 'approve')}
-                                className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-[11px] font-bold"
+                                className="px-2.5 py-1 rounded-lg bg-[#16856B]/10 hover:bg-[#16856B]/20 text-[#16856B] text-[11px] font-bold transition-colors"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => handleReview(exp.id, 'reject')}
-                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold"
+                                className="px-2.5 py-1 rounded-lg bg-[#D9485F]/10 hover:bg-[#D9485F]/20 text-[#D9485F] text-[11px] font-bold transition-colors"
                               >
                                 Reject
                               </button>
-                            </>
+                            </div>
                           )}
                           {exp.status === 'approved' && (
                             <button
                               onClick={() => handleReview(exp.id, 'disburse')}
-                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-bold"
+                              className="px-3 py-1 rounded-lg bg-[#625BF6] hover:bg-[#5048E5] text-white text-[11px] font-bold transition-colors"
                             >
-                              Disburse Payout
+                              Disburse Funds
                             </button>
                           )}
-                          {exp.status === 'disbursed' && (
-                            <span className="text-[11px] text-slate-400 font-medium">Settled</span>
+                          {['disbursed', 'rejected'].includes(exp.status) && (
+                            <span className="text-[11px] text-[#687086] italic">Settled</span>
                           )}
                         </td>
                       )}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Claim Modal */}
         {claimModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-sm text-slate-900">Submit Reimbursement Claim</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full border border-[#E7E9F1] shadow-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E7E9F1]">
+                <h3 className="font-bold text-base text-[#171A2B]">Submit Out-of-Pocket Expense Claim</h3>
                 <button
                   onClick={() => setClaimModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                  className="p-1 rounded-lg hover:bg-[#F7F8FC] text-[#687086]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                <div className="p-3 rounded-xl bg-[#D9485F]/10 border border-[#D9485F]/20 text-xs text-[#D9485F]">
                   {errorMsg}
                 </div>
               )}
 
-              <form onSubmit={handleSubmitClaim} className="space-y-4">
+              <form onSubmit={handleSubmitClaim} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Amount Spent in INR (₹)
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Amount Spent (INR) *
                   </label>
                   <input
                     type="number"
-                    required
-                    min="1"
                     step="0.01"
-                    placeholder="e.g. 1250.00"
+                    required
+                    placeholder="e.g. 1450"
                     value={amountInr}
                     onChange={(e) => setAmountInr(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Expense Category
-                  </label>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Category *</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   >
-                    <option value="logistics">Logistics & Cabling</option>
-                    <option value="refreshments">Refreshments & Food</option>
-                    <option value="production">AV & Stage Production</option>
-                    <option value="printing">Badge & Poster Printing</option>
-                    <option value="other">Miscellaneous</option>
+                    <option value="logistics">Event Logistics & Setup</option>
+                    <option value="refreshments">Food & Refreshments</option>
+                    <option value="production">Stage, Audio & Production</option>
+                    <option value="marketing">Banners & Marketing</option>
+                    <option value="stationery">Stationery & Badges</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Description & Purpose
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Expense Purpose / Description *
                   </label>
                   <textarea
-                    required
                     rows={3}
-                    placeholder="Describe what was purchased and which event/initiative it was for..."
+                    required
+                    placeholder="Explain what was purchased and which event/purpose it served..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  ></textarea>
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Receipt Image / Cloud Drive URL (Optional)
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Receipt Photo / Invoice URL (Optional)
                   </label>
                   <input
                     type="url"
                     placeholder="https://drive.google.com/... or image link"
                     value={receiptUrl}
                     onChange={(e) => setReceiptUrl(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   />
                 </div>
 
-                <div className="pt-2 flex gap-3">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E7E9F1]">
                   <button
                     type="button"
                     onClick={() => setClaimModalOpen(false)}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50"
+                    className="px-4 py-2 rounded-xl border border-[#E7E9F1] font-semibold text-[#687086] hover:bg-[#F7F8FC]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitLoading}
-                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                    className="px-5 py-2 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white font-semibold shadow-2xs disabled:opacity-50"
                   >
                     {submitLoading ? 'Submitting...' : 'Submit Claim'}
                   </button>

@@ -21,6 +21,10 @@ def seed_database(force: bool = False):
         db["tasks"].delete_many({})
         db["transactions"].delete_many({})
         db["expenses"].delete_many({})
+        db["notifications"].delete_many({})
+        db["correlated_risks"].delete_many({})
+        db["audit_logs"].delete_many({})
+        db["action_center_items"].delete_many({})
 
     now = datetime.utcnow()
     now_iso = now.isoformat()

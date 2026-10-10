@@ -22,8 +22,8 @@ class DatabaseManager:
             logger.info(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
             real_client = MongoClient(
                 settings.MONGODB_URI,
-                serverSelectionTimeoutMS=2000,
-                connectTimeoutMS=2000
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000
             )
             # Ping to verify
             real_client.admin.command('ping')

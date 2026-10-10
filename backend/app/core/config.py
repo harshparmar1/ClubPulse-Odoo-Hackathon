@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     
     # MongoDB Atlas
-    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_URI: str = "mongodb+srv://harsh:Harsh_1617@cluster0.hv7m6.mongodb.net/?appName=Cluster0"
     MONGODB_DB_NAME: str = "clubpulse"
     
     # Security

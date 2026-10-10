@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Bell, Plus, Sparkles, X, Megaphone, Clock } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Badge } from '../components/Badge';
+import { EmptyState } from '../components/EmptyState';
 
 export const AnnouncementsPage = () => {
   const { user, role } = useAuth();
@@ -60,20 +61,20 @@ export const AnnouncementsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-8 flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
               <Megaphone className="w-3.5 h-3.5" />
               <span>Official Chapter Bulletins</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-3xl font-bold tracking-tight text-[#171A2B]">
               Announcements & Notices
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm text-[#687086] mt-1">
               Important alerts, hackathon schedule updates, and exclusive member perks from executive leadership.
             </p>
           </div>
@@ -81,7 +82,7 @@ export const AnnouncementsPage = () => {
           {isOrganizer && (
             <button
               onClick={() => setModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+              className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
             >
               <Plus className="w-4 h-4" />
               <span>New Announcement</span>
@@ -93,13 +94,16 @@ export const AnnouncementsPage = () => {
         {loading ? (
           <div className="space-y-4">
             {[1, 2].map((n) => (
-              <div key={n} className="bg-white rounded-2xl h-36 animate-pulse border border-slate-200"></div>
+              <div key={n} className="bg-white rounded-2xl h-36 animate-pulse border border-[#E7E9F1]"></div>
             ))}
           </div>
         ) : announcements.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
-            <Bell className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-800">No announcements posted yet</h3>
+          <div className="py-12 bg-white rounded-2xl border border-[#E7E9F1]">
+            <EmptyState
+              icon={Bell}
+              title="No announcements posted yet"
+              description="Official broadcasts from chapter officers will appear here."
+            />
           </div>
         ) : (
           <div className="space-y-4">
@@ -112,36 +116,36 @@ export const AnnouncementsPage = () => {
                   key={ann.id}
                   className={`bg-white rounded-2xl p-6 border transition-all shadow-2xs space-y-3 ${
                     isUrgent
-                      ? 'border-rose-300 bg-rose-50/20'
+                      ? 'border-[#D9485F]/30 bg-[#D9485F]/5'
                       : isHigh
-                      ? 'border-amber-300 bg-amber-50/10'
-                      : 'border-slate-200/90'
+                      ? 'border-[#D98A18]/30 bg-[#D98A18]/5'
+                      : 'border-[#E7E9F1]'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant={isUrgent ? 'critical' : isHigh ? 'warning' : 'primary'}>
+                      <Badge variant={isUrgent ? 'critical' : isHigh ? 'warning' : 'accent'}>
                         {ann.priority.toUpperCase()}
                       </Badge>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#687086]">
                         Audience: {ann.target_audience.replace('_', ' ')}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <div className="text-[11px] text-[#687086] flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
                       <span>{ann.created_at?.slice(0, 10)}</span>
                     </div>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900">{ann.title}</h3>
+                  <h3 className="text-base font-bold text-[#171A2B]">{ann.title}</h3>
 
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                  <p className="text-xs sm:text-sm text-[#687086] leading-relaxed whitespace-pre-line">
                     {ann.content}
                   </p>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Published by <strong>{ann.author_name}</strong></span>
+                  <div className="pt-2 border-t border-[#E7E9F1] flex items-center justify-between text-[11px] text-[#687086]">
+                    <span>Published by <strong className="text-[#171A2B]">{ann.author_name}</strong></span>
                     <span className="font-mono text-[10px]">#{ann.id.slice(-6).toUpperCase()}</span>
                   </div>
                 </div>
@@ -152,22 +156,22 @@ export const AnnouncementsPage = () => {
 
         {/* Create Modal */}
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-sm text-slate-900">Publish Chapter Bulletin</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#E7E9F1]">
+              <div className="flex justify-between items-center border-b border-[#E7E9F1] pb-3">
+                <h3 className="font-bold text-sm text-[#171A2B]">Publish Chapter Bulletin</h3>
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                  className="p-1 rounded-lg text-[#687086] hover:text-[#171A2B] hover:bg-[#F7F8FC]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreate} className="space-y-4">
+              <form onSubmit={handleCreate} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Announcement Headline
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Announcement Headline *
                   </label>
                   <input
                     type="text"
@@ -175,19 +179,19 @@ export const AnnouncementsPage = () => {
                     placeholder="e.g. 🚨 HackPulse 2026 Venue Change to Hall A"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Priority Level
                     </label>
                     <select
                       value={priority}
                       onChange={(e) => setPriority(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                     >
                       <option value="normal">Normal</option>
                       <option value="high">High</option>
@@ -196,13 +200,13 @@ export const AnnouncementsPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Target Audience
                     </label>
                     <select
                       value={targetAudience}
                       onChange={(e) => setTargetAudience(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                     >
                       <option value="all">Everyone</option>
                       <option value="members_only">Members Only</option>
@@ -212,8 +216,8 @@ export const AnnouncementsPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Content
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Content *
                   </label>
                   <textarea
                     required
@@ -221,7 +225,7 @@ export const AnnouncementsPage = () => {
                     placeholder="Provide full context, instructions, and next steps..."
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   ></textarea>
                 </div>
 
@@ -229,14 +233,14 @@ export const AnnouncementsPage = () => {
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50"
+                    className="flex-1 py-2.5 border border-[#E7E9F1] text-[#687086] rounded-xl font-semibold hover:bg-[#F7F8FC]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={createLoading}
-                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700"
+                    className="flex-1 py-2.5 bg-[#625BF6] text-white rounded-xl font-semibold hover:bg-[#5048E5] transition-colors"
                   >
                     {createLoading ? 'Publishing...' : 'Broadcast'}
                   </button>

@@ -1,10 +1,16 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response
-from app.schemas.ledger import TransactionCreate, TransactionResponse, FinancialSummaryResponse
+from app.schemas.ledger import (
+    TransactionCreate, TransactionResponse, FinancialSummaryResponse, ExplainableFinancialInsights
+)
 from app.services.ledger_service import LedgerService
 from app.core.dependencies import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/transactions", tags=["Financial Ledger"])
+
+@router.get("/explainable-insights", response_model=ExplainableFinancialInsights)
+def get_explainable_insights(current_user: dict = Depends(require_roles(["organizer", "treasurer", "admin"]))):
+    return LedgerService.get_explainable_insights()
 
 @router.get("/summary", response_model=FinancialSummaryResponse)
 def get_summary(current_user: dict = Depends(require_roles(["organizer", "treasurer", "admin"]))):

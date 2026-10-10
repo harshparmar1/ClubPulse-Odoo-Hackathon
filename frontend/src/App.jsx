@@ -28,6 +28,9 @@ import { RiskWorkspacePage } from './pages/RiskWorkspacePage';
 import { SimulatorPage } from './pages/SimulatorPage';
 import { FinancialLedgerPage } from './pages/FinancialLedgerPage';
 import { HandoverReportPage } from './pages/HandoverReportPage';
+import { EventReadinessPage } from './pages/EventReadinessPage';
+import { ActionCenterPage } from './pages/ActionCenterPage';
+import { AuditLogsPage } from './pages/AuditLogsPage';
 
 export default function App() {
   return (
@@ -172,6 +175,30 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
                 <HandoverReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/action-center"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <ActionCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/readiness"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <EventReadinessPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
+                <AuditLogsPage />
               </ProtectedRoute>
             }
           />

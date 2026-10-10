@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { CheckSquare, Calendar, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { EmptyState } from '../components/EmptyState';
 
 export const StudentTasksPage = () => {
   const { user } = useAuth();
@@ -39,14 +41,14 @@ export const StudentTasksPage = () => {
     <DashboardLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
             <CheckSquare className="w-3.5 h-3.5" />
             <span>Volunteer Milestones</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-[#171A2B] tracking-tight">
             My Assigned Volunteer Tasks
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#687086] mt-1">
             Check off your operational duties for chapter hackathons, logistics setups, and lab equipment.
           </p>
         </div>
@@ -54,16 +56,16 @@ export const StudentTasksPage = () => {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white rounded-2xl h-24 animate-pulse border border-slate-200"></div>
+              <div key={n} className="bg-white rounded-2xl h-24 animate-pulse border border-[#E7E9F1]"></div>
             ))}
           </div>
         ) : tasks.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
-            <CheckCircle2 className="w-12 h-12 text-teal-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800">All clear! No pending tasks</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              You currently have no volunteer responsibilities assigned.
-            </p>
+          <div className="py-12 bg-white rounded-2xl border border-[#E7E9F1]">
+            <EmptyState
+              icon={CheckCircle2}
+              title="All clear! No pending tasks"
+              description="You currently have no volunteer responsibilities assigned."
+            />
           </div>
         ) : (
           <div className="space-y-3">
@@ -73,7 +75,7 @@ export const StudentTasksPage = () => {
                 <div
                   key={task.id}
                   className={`bg-white rounded-2xl p-5 border transition-all shadow-2xs flex items-center justify-between gap-4 ${
-                    isDone ? 'border-teal-200 bg-teal-50/20' : 'border-slate-200 hover:border-indigo-200'
+                    isDone ? 'border-[#16856B]/30 bg-[#16856B]/5' : 'border-[#E7E9F1] hover:border-[#625BF6]/40'
                   }`}
                 >
                   <div className="flex items-start gap-3.5">
@@ -82,8 +84,8 @@ export const StudentTasksPage = () => {
                       onClick={() => toggleTaskStatus(task)}
                       className={`w-6 h-6 rounded-lg border-2 mt-0.5 flex items-center justify-center transition-colors shrink-0 ${
                         isDone
-                          ? 'bg-teal-600 border-teal-600 text-white'
-                          : 'border-slate-300 hover:border-indigo-600 bg-white'
+                          ? 'bg-[#16856B] border-[#16856B] text-white'
+                          : 'border-[#E7E9F1] hover:border-[#625BF6] bg-white'
                       }`}
                     >
                       {isDone && <CheckCircle2 className="w-4 h-4" />}
@@ -91,11 +93,11 @@ export const StudentTasksPage = () => {
 
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className={`text-sm font-bold ${isDone ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                        <h3 className={`text-sm font-bold ${isDone ? 'line-through text-[#687086]' : 'text-[#171A2B]'}`}>
                           {task.title}
                         </h3>
                         {task.is_critical_path && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-200">
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-[#D9485F]/10 text-[#D9485F] border border-[#D9485F]/20">
                             Critical Path
                           </span>
                         )}
@@ -105,16 +107,16 @@ export const StudentTasksPage = () => {
                       </div>
 
                       {task.description && (
-                        <p className="text-xs text-slate-500 max-w-xl">{task.description}</p>
+                        <p className="text-xs text-[#687086] max-w-xl">{task.description}</p>
                       )}
 
-                      <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-1">
+                      <div className="flex items-center gap-4 text-[11px] text-[#687086] pt-1">
                         <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
+                          <Calendar className="w-3.5 h-3.5 text-[#687086]" />
                           Due: {task.due_date}
                         </span>
                         {task.event_title && (
-                          <span>Event: <strong>{task.event_title}</strong></span>
+                          <span>Event: <strong className="text-[#171A2B]">{task.event_title}</strong></span>
                         )}
                       </div>
                     </div>

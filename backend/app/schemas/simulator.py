@@ -30,6 +30,9 @@ class SimulationResponse(BaseModel):
     current_plan: Optional[ScenarioMetrics] = None
     proposed_scenario: ScenarioMetrics
     variance: Dict[str, Any]
+    volunteer_impact: Optional[Dict[str, Any]] = None
+    key_sensitivity_drivers: List[Dict[str, Any]] = []
+    operational_risks: List[str] = []
     warnings: List[str]
     recommendations: List[str]
     assumptions_statement: str

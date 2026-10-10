@@ -7,7 +7,8 @@ from fastapi import HTTPException
 from app.database.mongodb import get_database
 from app.schemas.ledger import (
     TransactionCreate, TransactionResponse, FinancialSummaryResponse,
-    ExpenseClaimCreate, ExpenseReviewRequest, ExpenseResponse
+    ExpenseClaimCreate, ExpenseReviewRequest, ExpenseResponse,
+    ExplainableFinancialInsights, EventFinancialInsight
 )
 
 class LedgerService:
@@ -217,3 +218,153 @@ class LedgerService:
         )
         updated = db["expenses"].find_one({"id": expense_id})
         return ExpenseResponse(**{k: v for k, v in updated.items() if k != "_id"})
+
+    @staticmethod
+    def get_explainable_insights() -> ExplainableFinancialInsights:
+        db = get_database()
+        now_iso = datetime.utcnow().isoformat()
+
+        # 1. Transactions breakdown
+        txns = list(db["transactions"].find())
+        actual_income = 0
+        actual_expenses = 0
+        upcoming_commitments = 0
+        pending_receivables = 0
+
+        for t in txns:
+            amt = t.get("amount_paise", 0)
+            status = t.get("status")
+            t_type = t.get("transaction_type")
+
+            if t_type == "income":
+                if status == "completed":
+                    actual_income += amt
+                elif status == "pending":
+                    pending_receivables += amt
+            elif t_type == "expense":
+                if status == "completed":
+                    actual_expenses += amt
+                elif status in ["committed", "approved"]:
+                    upcoming_commitments += amt
+
+        available_cash = actual_income - actual_expenses
+
+        # 2. Pending reimbursements from expenses collection
+        expenses = list(db["expenses"].find())
+        pending_reimbursements = sum(
+            e.get("amount_paise", 0) for e in expenses if e.get("status") in ["pending", "submitted"]
+        )
+
+        # 3. Outstanding member dues
+        members = list(db["members"].find())
+        outstanding_dues = 0
+        unpaid_members_count = 0
+        for m in members:
+            # Expected annual dues: 50,000 paise (₹500)
+            if m.get("membership_type") in ["annual", "semester"]:
+                paid = m.get("dues_paid_paise", 0)
+                expected = 50000 if m.get("membership_type") == "annual" else 30000
+                if paid < expected:
+                    outstanding_dues += (expected - paid)
+                    unpaid_members_count += 1
+
+        projected_income = actual_income + pending_receivables + outstanding_dues
+
+        # 4. Event-level breakdown
+        events = list(db["events"].find())
+        tickets = list(db["tickets"].find())
+        tickets_by_event: Dict[str, list] = {}
+        for tk in tickets:
+            eid = str(tk.get("event_id", ""))
+            tickets_by_event.setdefault(eid, []).append(tk)
+
+        expenses_by_event: Dict[str, list] = {}
+        for ex in expenses:
+            eid = str(ex.get("event_id", ""))
+            expenses_by_event.setdefault(eid, []).append(ex)
+
+        event_insights: List[EventFinancialInsight] = []
+        budgeted_expenses = 0
+
+        for ev in events:
+            eid = str(ev.get("id") or ev.get("_id"))
+            title = ev.get("title", "Event")
+            budget = int(ev.get("estimated_budget_paise") or ev.get("budget_paise") or 0)
+            budgeted_expenses += budget
+
+            ev_exp = expenses_by_event.get(eid, [])
+            actual_event_expenses = sum(e.get("amount_paise", 0) for e in ev_exp)
+
+            ev_tkt = tickets_by_event.get(eid, [])
+            if ev_tkt:
+                proj_revenue = sum(t.get("total_amount_paise", 0) for t in ev_tkt)
+            else:
+                booked = int(ev.get("booked_count", 0))
+                price = int(ev.get("member_price_paise", 0))
+                proj_revenue = booked * price
+
+            surplus = proj_revenue - actual_event_expenses
+            is_surplus = surplus >= 0
+
+            if actual_event_expenses > budget and budget > 0:
+                ev_status = "deficit"
+            elif actual_event_expenses > (0.8 * budget) and budget > 0:
+                ev_status = "warning"
+            else:
+                ev_status = "healthy"
+
+            event_insights.append(EventFinancialInsight(
+                event_id=eid,
+                title=title,
+                budget_paise=budget,
+                actual_expenses_paise=actual_event_expenses,
+                projected_revenue_paise=proj_revenue,
+                projected_surplus_deficit_paise=surplus,
+                is_surplus=is_surplus,
+                status=ev_status
+            ))
+
+        # 5. Historical comparison with honest data limitation
+        historical_comparison = {
+            "has_sufficient_history": False,
+            "comparable_periods_available": 1,
+            "period_label": "Current Semester (Spring 2026)",
+            "limitation_statement": "Only single-semester operational records exist. Historical multi-year variance trends are withheld to avoid fabricated forecasting."
+        }
+
+        # 6. Traceable evidence
+        traceable_evidence = {
+            "completed_transactions_count": sum(1 for t in txns if t.get("status") == "completed"),
+            "committed_transactions_count": sum(1 for t in txns if t.get("status") == "committed"),
+            "pending_reimbursement_claims_count": sum(1 for e in expenses if e.get("status") in ["pending", "submitted"]),
+            "unpaid_members_count": unpaid_members_count,
+            "total_events_analyzed": len(events)
+        }
+
+        # 7. Treasurer recommendations
+        recommendations = []
+        if pending_reimbursements > 0:
+            recommendations.append(f"Clear ₹{pending_reimbursements/100:.2f} in outstanding member reimbursement claims to maintain student trust.")
+        if outstanding_dues > 0:
+            recommendations.append(f"Collect ₹{outstanding_dues/100:.2f} in delinquent member dues through automated email reminders.")
+        if available_cash < upcoming_commitments:
+            recommendations.append("Warning: Net liquid reserves fall below committed obligations. Hold discretionary outlays.")
+        else:
+            recommendations.append("Liquid cash reserves comfortably cover current committed obligations.")
+
+        return ExplainableFinancialInsights(
+            actual_income_paise=actual_income,
+            projected_income_paise=projected_income,
+            actual_expenses_paise=actual_expenses,
+            budgeted_expenses_paise=budgeted_expenses,
+            pending_reimbursements_paise=pending_reimbursements,
+            upcoming_commitments_paise=upcoming_commitments,
+            outstanding_member_dues_paise=outstanding_dues,
+            available_cash_paise=available_cash,
+            event_insights=event_insights,
+            historical_comparison=historical_comparison,
+            traceable_evidence=traceable_evidence,
+            treasurer_recommendations=recommendations,
+            evaluated_at=now_iso
+        )
+

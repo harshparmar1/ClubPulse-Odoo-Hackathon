@@ -3,6 +3,8 @@ import { api, formatINR } from '../api/client';
 import { Box, Plus, AlertTriangle, CheckCircle2, X, ShoppingBag } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
+import { EmptyState } from '../components/EmptyState';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
 
 export const MerchManagementPage = () => {
   const [products, setProducts] = useState([]);
@@ -70,24 +72,24 @@ export const MerchManagementPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#625BF6]/10 border border-[#625BF6]/20 text-xs font-semibold text-[#625BF6] mb-2">
               <Box className="w-3.5 h-3.5" />
               <span>Merchandise & Stock Logistics</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl font-bold text-[#171A2B] tracking-tight">
               Inventory & Apparel SKUs
             </h1>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-[#687086] mt-1">
               Manage product sizing variants, stock reserves, and textile supplier SKUs.
             </p>
           </div>
 
           <button
             onClick={() => setModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+            className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Product SKU</span>
@@ -95,87 +97,101 @@ export const MerchManagementPage = () => {
         </div>
 
         {/* Products Table */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Item & SKU</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Price (INR)</th>
-                  <th className="py-3 px-4">Size Variant Breakdown</th>
-                  <th className="py-3 px-4">Total Available</th>
-                  <th className="py-3 px-4">Stock Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {products.map((prod) => (
-                  <tr key={prod.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{prod.name}</div>
-                      <div className="text-[11px] font-mono text-slate-400">SKU: {prod.sku}</div>
-                    </td>
-                    <td className="py-3 px-4 capitalize">{prod.category}</td>
-                    <td className="py-3 px-4 font-bold text-slate-900">
-                      {formatINR(prod.price_paise)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {prod.sizes?.map((s) => (
-                          <span
-                            key={s.size}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                              s.stock <= 2
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : 'bg-slate-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            {s.size}: {s.stock}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-extrabold text-sm text-slate-900">
-                      {prod.total_stock} units
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant={
-                          prod.total_stock === 0
-                            ? 'critical'
-                            : prod.total_stock <= 5
-                            ? 'warning'
-                            : 'active'
-                        }
-                      >
-                        {prod.total_stock === 0 ? 'Sold Out' : prod.total_stock <= 5 ? 'Low Stock' : 'Optimal'}
-                      </Badge>
-                    </td>
+        <div className="bg-white rounded-2xl border border-[#E7E9F1] shadow-2xs overflow-hidden">
+          {loading ? (
+            <div className="p-6">
+              <LoadingSkeleton lines={5} />
+            </div>
+          ) : products.length === 0 ? (
+            <div className="py-12">
+              <EmptyState
+                icon={Box}
+                title="No inventory products added"
+                description="Click 'Add New Product SKU' to add hoodies, tees, or club badges."
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F7F8FC] text-[#687086] uppercase font-bold border-b border-[#E7E9F1] text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-4">Item & SKU</th>
+                    <th className="py-3.5 px-4">Category</th>
+                    <th className="py-3.5 px-4">Price (INR)</th>
+                    <th className="py-3.5 px-4">Size Variant Breakdown</th>
+                    <th className="py-3.5 px-4">Total Available</th>
+                    <th className="py-3.5 px-4">Stock Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#E7E9F1] font-medium text-[#171A2B]">
+                  {products.map((prod) => (
+                    <tr key={prod.id} className="hover:bg-[#F7F8FC]/60 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-[#171A2B]">{prod.name}</div>
+                        <div className="text-[11px] font-mono text-[#687086]">SKU: {prod.sku}</div>
+                      </td>
+                      <td className="py-3.5 px-4 capitalize text-[#687086]">{prod.category}</td>
+                      <td className="py-3.5 px-4 font-bold text-[#171A2B]">
+                        {formatINR(prod.price_paise)}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          {prod.sizes?.map((s) => (
+                            <span
+                              key={s.size}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                s.stock <= 2
+                                  ? 'bg-[#D9485F]/10 text-[#D9485F] border-[#D9485F]/20'
+                                  : 'bg-[#F7F8FC] text-[#171A2B] border-[#E7E9F1]'
+                              }`}
+                            >
+                              {s.size}: {s.stock}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-sm text-[#171A2B]">
+                        {prod.total_stock} units
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={
+                            prod.total_stock === 0
+                              ? 'critical'
+                              : prod.total_stock <= 5
+                              ? 'warning'
+                              : 'active'
+                          }
+                        >
+                          {prod.total_stock === 0 ? 'Sold Out' : prod.total_stock <= 5 ? 'Low Stock' : 'Optimal'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Modal */}
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-sm text-slate-900">Add New Merchandise Product</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#E7E9F1]">
+              <div className="flex justify-between items-center border-b border-[#E7E9F1] pb-3">
+                <h3 className="font-bold text-sm text-[#171A2B]">Add New Merchandise Product</h3>
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                  className="p-1 rounded-lg text-[#687086] hover:text-[#171A2B] hover:bg-[#F7F8FC]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateProduct} className="space-y-4">
+              <form onSubmit={handleCreateProduct} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Product Title
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Product Title *
                   </label>
                   <input
                     type="text"
@@ -183,14 +199,14 @@ export const MerchManagementPage = () => {
                     placeholder="e.g. Chapter Embroidered Fleece"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      SKU Code
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      SKU Code *
                     </label>
                     <input
                       type="text"
@@ -198,18 +214,18 @@ export const MerchManagementPage = () => {
                       placeholder="CP-HOOD-26"
                       value={sku}
                       onChange={(e) => setSku(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Category
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Category *
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                     >
                       <option value="Hoodies">Hoodies</option>
                       <option value="T-Shirts">T-Shirts</option>
@@ -220,8 +236,8 @@ export const MerchManagementPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Price in INR (₹)
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Price in INR (₹) *
                   </label>
                   <input
                     type="number"
@@ -229,13 +245,13 @@ export const MerchManagementPage = () => {
                     min="1"
                     value={priceInr}
                     onChange={(e) => setPriceInr(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Description
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Description *
                   </label>
                   <textarea
                     required
@@ -243,53 +259,53 @@ export const MerchManagementPage = () => {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Material specs, wash instructions, fabric GSM..."
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   ></textarea>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block font-semibold text-[#171A2B] mb-1">
                     Initial Stock by Size
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     <div>
-                      <span className="block text-[10px] text-slate-400 font-bold">S</span>
+                      <span className="block text-[10px] text-[#687086] font-bold">S</span>
                       <input
                         type="number"
                         min="0"
                         value={stockS}
                         onChange={(e) => setStockS(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg text-center font-bold"
+                        className="w-full px-2 py-1.5 text-xs border border-[#E7E9F1] bg-[#F7F8FC] rounded-lg text-center font-bold"
                       />
                     </div>
                     <div>
-                      <span className="block text-[10px] text-slate-400 font-bold">M</span>
+                      <span className="block text-[10px] text-[#687086] font-bold">M</span>
                       <input
                         type="number"
                         min="0"
                         value={stockM}
                         onChange={(e) => setStockM(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg text-center font-bold"
+                        className="w-full px-2 py-1.5 text-xs border border-[#E7E9F1] bg-[#F7F8FC] rounded-lg text-center font-bold"
                       />
                     </div>
                     <div>
-                      <span className="block text-[10px] text-slate-400 font-bold">L</span>
+                      <span className="block text-[10px] text-[#687086] font-bold">L</span>
                       <input
                         type="number"
                         min="0"
                         value={stockL}
                         onChange={(e) => setStockL(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg text-center font-bold"
+                        className="w-full px-2 py-1.5 text-xs border border-[#E7E9F1] bg-[#F7F8FC] rounded-lg text-center font-bold"
                       />
                     </div>
                     <div>
-                      <span className="block text-[10px] text-slate-400 font-bold">XL</span>
+                      <span className="block text-[10px] text-[#687086] font-bold">XL</span>
                       <input
                         type="number"
                         min="0"
                         value={stockXL}
                         onChange={(e) => setStockXL(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg text-center font-bold"
+                        className="w-full px-2 py-1.5 text-xs border border-[#E7E9F1] bg-[#F7F8FC] rounded-lg text-center font-bold"
                       />
                     </div>
                   </div>
@@ -299,14 +315,14 @@ export const MerchManagementPage = () => {
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50"
+                    className="flex-1 py-2.5 border border-[#E7E9F1] text-[#687086] rounded-xl font-semibold hover:bg-[#F7F8FC]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={createLoading}
-                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700"
+                    className="flex-1 py-2.5 bg-[#625BF6] text-white rounded-xl font-semibold hover:bg-[#5048E5] transition-colors"
                   >
                     {createLoading ? 'Saving...' : 'Add SKU'}
                   </button>

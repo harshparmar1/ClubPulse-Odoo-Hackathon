@@ -55,3 +55,29 @@ class ExpenseResponse(BaseModel):
     reviewer_notes: Optional[str] = None
     created_at: str
     reviewed_at: Optional[str] = None
+
+class EventFinancialInsight(BaseModel):
+    event_id: str
+    title: str
+    budget_paise: int
+    actual_expenses_paise: int
+    projected_revenue_paise: int
+    projected_surplus_deficit_paise: int
+    is_surplus: bool
+    status: str  # healthy, warning, deficit
+
+class ExplainableFinancialInsights(BaseModel):
+    actual_income_paise: int
+    projected_income_paise: int
+    actual_expenses_paise: int
+    budgeted_expenses_paise: int
+    pending_reimbursements_paise: int
+    upcoming_commitments_paise: int
+    outstanding_member_dues_paise: int
+    available_cash_paise: int
+    event_insights: List[EventFinancialInsight]
+    historical_comparison: Dict[str, Any]
+    traceable_evidence: Dict[str, Any]
+    treasurer_recommendations: List[str]
+    evaluated_at: str
+
