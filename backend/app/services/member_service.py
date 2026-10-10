@@ -61,42 +61,28 @@ class MemberService:
         member_status = "active" if data.dues_paid_paise > 0 else "pending"
 
         if existing:
-            member_id = existing["id"]
-            db["members"].update_one(
-                {"id": member_id},
-                {
-                    "$set": {
-                        "user_id": user_id or existing.get("user_id"),
-                        "full_name": data.full_name,
-                        "roll_number": data.roll_number,
-                        "phone": data.phone or existing.get("phone"),
-                        "department": data.department or existing.get("department"),
-                        "status": member_status,
-                        "membership_type": data.membership_type,
-                        "expiry_date": expiry,
-                        "updated_at": now_iso
-                    },
-                    "$inc": {"dues_paid_paise": data.dues_paid_paise}
-                }
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A membership profile with this email already exists."
             )
-        else:
-            member_id = f"mem_{uuid.uuid4().hex[:10]}"
-            member_doc = {
-                "id": member_id,
-                "user_id": user_id,
-                "full_name": data.full_name,
-                "email": data.email.lower(),
-                "roll_number": data.roll_number,
-                "phone": data.phone,
-                "department": data.department,
-                "status": member_status,
-                "membership_type": data.membership_type,
-                "start_date": now_iso,
-                "expiry_date": expiry,
-                "dues_paid_paise": data.dues_paid_paise,
-                "created_at": now_iso
-            }
-            db["members"].insert_one(member_doc)
+
+        member_id = f"mem_{uuid.uuid4().hex[:10]}"
+        member_doc = {
+            "id": member_id,
+            "user_id": user_id,
+            "full_name": data.full_name,
+            "email": data.email.lower(),
+            "roll_number": data.roll_number,
+            "phone": data.phone,
+            "department": data.department,
+            "status": member_status,
+            "membership_type": data.membership_type,
+            "start_date": now_iso,
+            "expiry_date": expiry,
+            "dues_paid_paise": data.dues_paid_paise,
+            "created_at": now_iso
+        }
+        db["members"].insert_one(member_doc)
 
         # Update linked user account if present
         if user_id and member_status == "active":
