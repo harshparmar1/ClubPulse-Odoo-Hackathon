@@ -45,11 +45,11 @@ class UserService:
                 "events_registered_count": ticket_count,
                 "registered_events_count": ticket_count,
                 "volunteer_tasks_count": task_count,
-                "membership_tier": user.get("membership_tier", "annual"),
+                "membership_tier": user.get("membership_tier"),
                 "membership_role": user.get("membership_role", "participant"),
-                "membership_status": user.get("membership_status", "active"),
-                "membership_expiry": user.get("membership_expiry") or "2027-04-10",
-                "membership_renewal_date": user.get("membership_expiry") or "2027-04-10"
+                "membership_status": user.get("membership_status") or "non_member",
+                "membership_expiry": user.get("membership_expiry"),
+                "membership_renewal_date": user.get("membership_expiry")
             }
 
         elif role == "organizer":
@@ -139,9 +139,9 @@ class UserService:
             department=clean_user.get("department") or ("Computer Science" if clean_user.get("role") == "student" else "Operations & Council"),
             designation=clean_user.get("designation") or (f"Club {clean_user.get('role', 'Member').capitalize()}"),
             role=clean_user.get("role", "student"),
-            membership_status=clean_user.get("membership_status", "active"),
+            membership_status=clean_user.get("membership_status") or "non_member",
             membership_expiry=clean_user.get("membership_expiry"),
-            membership_tier=clean_user.get("membership_tier", "annual"),
+            membership_tier=clean_user.get("membership_tier"),
             membership_role=clean_user.get("membership_role", "participant"),
             is_volunteer=bool(clean_user.get("is_volunteer", False) or clean_user.get("membership_role") == "volunteer"),
             is_active=clean_user.get("is_active", True),

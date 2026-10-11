@@ -712,14 +712,34 @@ export const StudentDashboard = () => {
                           <div className="pt-3 border-t border-[#E7E9F1] space-y-2">
                             <div className="flex items-center justify-between text-xs">
                               <div>
-                                <div className="text-[10px] text-[#687086]">Student Member Price</div>
-                                <div className="font-extrabold text-[#171A2B]">
-                                  {evt.member_price_paise === 0 ? (
-                                    <span className="text-[#16856B]">Free (Member)</span>
-                                  ) : (
-                                    <span>{formatINR(evt.member_price_paise)}</span>
-                                  )}
-                                </div>
+                                {isMember ? (
+                                  <>
+                                    <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                      <span>Member Price</span>
+                                      <span className="text-[9px] bg-emerald-50 px-1 rounded border border-emerald-200">Active</span>
+                                    </div>
+                                    <div className="font-extrabold text-[#171A2B]">
+                                      {evt.member_price_paise === 0 ? (
+                                        <span className="text-[#16856B]">Free (Member Pass)</span>
+                                      ) : (
+                                        <span>{formatINR(evt.member_price_paise)}</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[9px] text-[#687086]">
+                                      Standard: {formatINR(evt.non_member_price_paise)}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-[10px] text-[#687086] font-medium">Ticket Price (Non-Member)</div>
+                                    <div className="font-extrabold text-[#171A2B]">
+                                      <span>{formatINR(evt.non_member_price_paise)}</span>
+                                    </div>
+                                    <div className="text-[9px] text-[#625BF6]">
+                                      Member: {evt.member_price_paise === 0 ? 'Free' : formatINR(evt.member_price_paise)}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                               {isEnrolled ? (
                                 <button

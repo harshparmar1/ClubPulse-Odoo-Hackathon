@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -48,7 +48,15 @@ export const MerchCatalogPage = () => {
     fetchProducts();
   }, []);
 
-  const categories = ['All', 'Hoodies', 'T-Shirts', 'Jackets'];
+  const categories = useMemo(() => {
+    const list = ['Hoodies', 'T-Shirts', 'Jackets', 'Badges'];
+    products.forEach((p) => {
+      if (p.category && !list.some((c) => c.toLowerCase() === p.category.toLowerCase())) {
+        list.push(p.category);
+      }
+    });
+    return ['All', ...list];
+  }, [products]);
 
   const filteredProducts = products.filter((p) => {
     if (selectedCategory === 'All') return true;

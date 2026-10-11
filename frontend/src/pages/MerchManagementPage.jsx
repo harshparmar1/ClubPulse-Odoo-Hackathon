@@ -41,6 +41,8 @@ export const MerchManagementPage = () => {
   const [editDescription, setEditDescription] = useState('');
   const [editPriceInr, setEditPriceInr] = useState(499);
   const [editCategory, setEditCategory] = useState('T-Shirts');
+  const [customEditCategory, setCustomEditCategory] = useState('');
+  const [isCustomEditCategory, setIsCustomEditCategory] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState('/merch/white-tee.jpg');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
@@ -55,6 +57,8 @@ export const MerchManagementPage = () => {
   const [description, setDescription] = useState('');
   const [priceInr, setPriceInr] = useState(499);
   const [category, setCategory] = useState('T-Shirts');
+  const [customCategory, setCustomCategory] = useState('');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [sku, setSku] = useState('');
   const [imageUrl, setImageUrl] = useState('/merch/white-tee.jpg');
   const [stockS, setStockS] = useState(15);
@@ -172,13 +176,25 @@ export const MerchManagementPage = () => {
     }
   };
 
+  const STANDARD_CATEGORIES = ['T-Shirts', 'Hoodies', 'Badges', 'Jackets', 'Accessories'];
+
   const openEditModal = (prod) => {
     setEditModalProduct(prod);
     setEditName(prod.name || '');
     setEditBrand(prod.brand || 'Competition Edition');
     setEditDescription(prod.description || '');
     setEditPriceInr(Math.round((prod.price_paise || 0) / 100));
-    setEditCategory(prod.category || 'T-Shirts');
+
+    if (STANDARD_CATEGORIES.includes(prod.category)) {
+      setEditCategory(prod.category);
+      setIsCustomEditCategory(false);
+      setCustomEditCategory('');
+    } else {
+      setEditCategory('Other');
+      setIsCustomEditCategory(true);
+      setCustomEditCategory(prod.category || '');
+    }
+
     setEditImageUrl(prod.image_url || '/merch/white-tee.jpg');
     setEditError('');
   };
@@ -190,6 +206,13 @@ export const MerchManagementPage = () => {
       setEditError('Product name is required.');
       return;
     }
+
+    const finalCategory = isCustomEditCategory ? customEditCategory.trim() : editCategory;
+    if (isCustomEditCategory && !customEditCategory.trim()) {
+      setEditError('Please enter a custom category name.');
+      return;
+    }
+
     setEditLoading(true);
     setEditError('');
 
@@ -199,7 +222,7 @@ export const MerchManagementPage = () => {
         brand: editBrand.trim(),
         description: editDescription.trim(),
         price_paise: Math.round(Number(editPriceInr) * 100),
-        category: editCategory,
+        category: finalCategory,
         image_url: editImageUrl
       });
 
@@ -235,6 +258,12 @@ export const MerchManagementPage = () => {
 
   const handleCreateProduct = async (e) => {
     e.preventDefault();
+    const finalCategory = isCustomCategory ? customCategory.trim() : category;
+    if (isCustomCategory && !customCategory.trim()) {
+      alert('Please enter a custom category name.');
+      return;
+    }
+
     setCreateLoading(true);
 
     try {
@@ -242,7 +271,7 @@ export const MerchManagementPage = () => {
         name,
         description,
         price_paise: Math.round(Number(priceInr) * 100),
-        category,
+        category: finalCategory,
         sku: sku.toUpperCase(),
         image_url: imageUrl || '/merch/white-tee.jpg',
         sizes: [
@@ -256,6 +285,9 @@ export const MerchManagementPage = () => {
       setName('');
       setDescription('');
       setSku('');
+      setCategory('T-Shirts');
+      setIsCustomCategory(false);
+      setCustomCategory('');
       fetchProducts();
       showNotice('New product added to inventory.');
     } catch (err) {
@@ -696,14 +728,35 @@ export const MerchManagementPage = () => {
                       Category *
                     </label>
                     <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      value={isCustomCategory ? 'Other' : category}
+                      onChange={(e) => {
+                        if (e.target.value === 'Other') {
+                          setIsCustomCategory(true);
+                        } else {
+                          setIsCustomCategory(false);
+                          setCategory(e.target.value);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                     >
                       <option value="Hoodies">Hoodies</option>
                       <option value="T-Shirts">T-Shirts</option>
                       <option value="Badges">Badges</option>
+                      <option value="Jackets">Jackets</option>
+                      <option value="Accessories">Accessories</option>
+                      <option value="Other">Other (type manually)</option>
                     </select>
+                    {isCustomCategory && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Type category (e.g. Caps, Posters)..."
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        className="mt-2 w-full px-3 py-2 border border-[#625BF6] rounded-xl bg-white text-[#171A2B] text-xs focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                        autoFocus
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -909,8 +962,15 @@ export const MerchManagementPage = () => {
                   <div>
                     <label className="block font-semibold text-[#171A2B] mb-1">Category *</label>
                     <select
-                      value={editCategory}
-                      onChange={(e) => setEditCategory(e.target.value)}
+                      value={isCustomEditCategory ? 'Other' : editCategory}
+                      onChange={(e) => {
+                        if (e.target.value === 'Other') {
+                          setIsCustomEditCategory(true);
+                        } else {
+                          setIsCustomEditCategory(false);
+                          setEditCategory(e.target.value);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:ring-2 focus:ring-[#625BF6]"
                     >
                       <option value="T-Shirts">T-Shirts</option>
@@ -918,7 +978,19 @@ export const MerchManagementPage = () => {
                       <option value="Badges">Badges</option>
                       <option value="Jackets">Jackets</option>
                       <option value="Accessories">Accessories</option>
+                      <option value="Other">Other (type manually)</option>
                     </select>
+                    {isCustomEditCategory && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Type category..."
+                        value={customEditCategory}
+                        onChange={(e) => setCustomEditCategory(e.target.value)}
+                        className="mt-2 w-full px-3 py-2 border border-[#625BF6] rounded-xl bg-white text-[#171A2B] text-xs focus:ring-2 focus:ring-[#625BF6]"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block font-semibold text-[#171A2B] mb-1">Brand / Tag</label>

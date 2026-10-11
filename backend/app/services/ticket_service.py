@@ -1,6 +1,8 @@
 import uuid
 import re
+import io
 import json
+import base64
 import threading
 from datetime import datetime
 from typing import List
@@ -8,6 +10,57 @@ from fastapi import HTTPException, status
 from app.database.mongodb import get_database
 from app.schemas.ticket import TicketBookRequest, TicketResponse, TicketCheckInResponse
 from app.services.email_service import EmailService
+
+
+def _build_qr_text(ticket_doc: dict) -> str:
+    """Build the same human-readable QR text payload used by the email service."""
+    lines = [
+        "🎓 ClubPulse Verified Event Pass",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"👤 Attendee: {ticket_doc.get('user_name', 'Student')}",
+        f"🆔 Roll No: {ticket_doc.get('user_roll_number', 'STU-VERIFIED')}",
+        f"🏛️ Department: {ticket_doc.get('user_department', 'General')}",
+        f"📧 Email: {ticket_doc.get('user_email', '')}",
+    ]
+    phone = ticket_doc.get('user_phone', '')
+    if phone:
+        lines.append(f"📞 Phone: {phone}")
+    is_member = ticket_doc.get('membership_status') == 'active'
+    track = ticket_doc.get('role_track', 'participant')
+    lines.extend([
+        f"⭐ Membership: {'Active Club Member' if is_member else 'General Attendee'}",
+        f"🎟️ Pass Track: {'Volunteer Operations Pass' if track == 'volunteer' else 'Participant Attendee Pass'}",
+        "",
+        f"📅 Event: {ticket_doc.get('event_title', '')}",
+        f"🕒 Date & Time: {ticket_doc.get('event_date', '')}",
+        f"📍 Venue: {ticket_doc.get('venue', '')}",
+        f"🎫 Pass Token: {ticket_doc.get('qr_token', '')}",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "Official Gate Credential • Present for Entry",
+    ])
+    return "\n".join(lines)
+
+
+def _generate_qr_base64(text: str) -> str:
+    """Generate a QR code PNG and return as base64 data URL string."""
+    try:
+        import qrcode
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=8,
+            border=2,
+        )
+        qr.add_data(text)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#171A2B", back_color="#FFFFFF")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    except Exception as e:
+        print(f"[QR-GEN-ERR] Failed to generate QR image: {e}")
+        return ""
 
 class TicketService:
     @staticmethod
@@ -119,6 +172,11 @@ class TicketService:
             "checked_in_at": None,
             "created_at": now_iso
         }
+
+        # Generate and store the QR image in the DB
+        qr_text = _build_qr_text(ticket_doc)
+        ticket_doc["qr_image"] = _generate_qr_base64(qr_text)
+
         db["tickets"].insert_one(ticket_doc)
 
         # Automatically email the QR code pass to user's registered email
@@ -156,6 +214,13 @@ class TicketService:
         cursor = db["tickets"].find({"user_id": current_user["id"]}).sort("created_at", -1)
         results = []
         for doc in cursor:
+            # If older tickets have no qr_image stored, generate it now and save
+            qr_image = doc.get("qr_image", "")
+            if not qr_image:
+                qr_text = _build_qr_text(doc)
+                qr_image = _generate_qr_base64(qr_text)
+                db["tickets"].update_one({"id": doc["id"]}, {"$set": {"qr_image": qr_image}})
+
             results.append(TicketResponse(
                 id=doc["id"],
                 event_id=doc["event_id"],
@@ -174,6 +239,7 @@ class TicketService:
                 is_member_discount_applied=doc.get("is_member_discount_applied", False),
                 role_track=doc.get("role_track", "participant"),
                 qr_token=doc["qr_token"],
+                qr_image=qr_image,
                 razorpay_order_id=doc.get("razorpay_order_id"),
                 razorpay_payment_id=doc.get("razorpay_payment_id"),
                 razorpay_signature=doc.get("razorpay_signature"),

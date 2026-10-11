@@ -180,37 +180,15 @@ class AuthService:
             "phone": data.phone,
             "department": "Computer Science",
             "role": "student",
-            "membership_status": "active",
-            "membership_expiry": future_iso,
-            "membership_tier": "annual",
+            "membership_status": "non_member",
+            "membership_expiry": None,
+            "membership_tier": None,
             "membership_role": "participant",
             "is_active": True,
             "created_at": now_iso
         }
 
         db["users"].insert_one(user_doc)
-
-        # Synchronize into members collection so user appears across the platform
-        db["members"].update_one(
-            {"$or": [{"email": email_clean}, {"user_id": user_id}]},
-            {"$set": {
-                "id": f"mem_{uuid.uuid4().hex[:8]}",
-                "user_id": user_id,
-                "full_name": user_doc["full_name"],
-                "email": email_clean,
-                "roll_number": user_doc["roll_number"],
-                "phone": user_doc.get("phone", ""),
-                "department": "Computer Science",
-                "status": "active",
-                "membership_type": "annual",
-                "dues_paid_paise": 50000,
-                "membership_role": "participant",
-                "joined_at": now_iso,
-                "expires_at": future_iso,
-                "created_at": now_iso
-            }},
-            upsert=True
-        )
 
         token = create_access_token({"sub": user_id, "role": "student"})
 
@@ -223,8 +201,8 @@ class AuthService:
             role="student",
             membership_status=user_doc["membership_status"],
             membership_expiry=user_doc["membership_expiry"],
-            membership_tier="annual",
-            membership_role="participant",
+            membership_tier=user_doc.get("membership_tier"),
+            membership_role=user_doc.get("membership_role", "participant"),
             created_at=user_doc["created_at"]
         )
         return TokenResponse(access_token=token, user=user_res)
@@ -361,37 +339,15 @@ class AuthService:
             "phone": data.phone,
             "department": "Computer Science",
             "role": role,
-            "membership_status": "active",
-            "membership_expiry": future_iso,
-            "membership_tier": "annual",
+            "membership_status": "non_member",
+            "membership_expiry": None,
+            "membership_tier": None,
             "membership_role": "participant",
             "is_active": True,
             "created_at": now_iso
         }
 
         db["users"].insert_one(user_doc)
-
-        # Synchronize into members collection
-        db["members"].update_one(
-            {"$or": [{"email": email_clean}, {"user_id": user_id}]},
-            {"$set": {
-                "id": f"mem_{uuid.uuid4().hex[:8]}",
-                "user_id": user_id,
-                "full_name": user_doc["full_name"],
-                "email": email_clean,
-                "roll_number": user_doc["roll_number"],
-                "phone": user_doc.get("phone", ""),
-                "department": "Computer Science",
-                "status": "active",
-                "membership_type": "annual",
-                "dues_paid_paise": 50000,
-                "membership_role": "participant",
-                "joined_at": now_iso,
-                "expires_at": future_iso,
-                "created_at": now_iso
-            }},
-            upsert=True
-        )
 
         token = create_access_token({"sub": user_id, "role": role})
 
@@ -404,8 +360,8 @@ class AuthService:
             role=role,
             membership_status=user_doc["membership_status"],
             membership_expiry=user_doc["membership_expiry"],
-            membership_tier="annual",
-            membership_role="participant",
+            membership_tier=user_doc.get("membership_tier"),
+            membership_role=user_doc.get("membership_role", "participant"),
             created_at=user_doc["created_at"]
         )
         return TokenResponse(access_token=token, user=user_res)

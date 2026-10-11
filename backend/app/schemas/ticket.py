@@ -24,6 +24,7 @@ class TicketResponse(BaseModel):
     is_member_discount_applied: bool
     role_track: Optional[str] = "participant"
     qr_token: str
+    qr_image: Optional[str] = None  # base64 data URL of QR code PNG stored in DB
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     razorpay_signature: Optional[str] = None
@@ -34,6 +35,7 @@ class TicketResponse(BaseModel):
     checked_in: bool
     checked_in_at: Optional[str] = None
     created_at: str
+
 
 class TicketCheckInRequest(BaseModel):
     qr_token: str

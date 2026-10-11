@@ -283,8 +283,9 @@ export const ExpensesPage = () => {
       const formData = new FormData();
       formData.append('file', receiptFile);
 
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const uploadRes = await fetch('/api/expenses/upload-receipt', {
+      const token = localStorage.getItem('skyline_token') || localStorage.getItem('clubpulse_token');
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const uploadRes = await fetch(`${BASE_URL}/api/expenses/upload-receipt`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -577,8 +578,14 @@ export const ExpensesPage = () => {
                 <div>
                   <label className="block font-semibold text-[#171A2B] mb-1">Category *</label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={['logistics', 'refreshments', 'production', 'travel', 'supplies'].includes(category) ? category : '__other__'}
+                    onChange={(e) => {
+                      if (e.target.value === '__other__') {
+                        setCategory('');
+                      } else {
+                        setCategory(e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
                   >
                     <option value="logistics">Event Logistics & Setup</option>
@@ -586,7 +593,18 @@ export const ExpensesPage = () => {
                     <option value="production">Stage, Audio & Production</option>
                     <option value="travel">Volunteer Travel / Conveyance</option>
                     <option value="supplies">Print, Stationery & Supplies</option>
+                    <option value="__other__">Other (type manually)</option>
                   </select>
+                  {!['logistics', 'refreshments', 'production', 'travel', 'supplies'].includes(category) && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Registration Fee, Equipment Rental..."
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full mt-2 px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    />
+                  )}
                 </div>
 
                 {/* Description */}

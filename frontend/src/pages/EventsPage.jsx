@@ -336,16 +336,26 @@ export const EventsPage = () => {
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                          <div className="text-[10px] font-medium text-[#687086]">Ticket Price</div>
+                          <div className="text-[10px] font-medium text-[#687086]">
+                            {isMember ? 'Ticket Price (Member)' : 'Ticket Price (Non-Member)'}
+                          </div>
                           <div className="text-xs font-bold text-[#171A2B]">
-                            {evt.member_price_paise === 0 ? (
-                              <span className="text-[#16856B] font-bold">Free for Members</span>
+                            {isMember ? (
+                              evt.member_price_paise === 0 ? (
+                                <span className="text-[#16856B] font-bold">Free (Member Privilege)</span>
+                              ) : (
+                                <span>{formatINR(evt.member_price_paise)}</span>
+                              )
                             ) : (
-                              <span>{formatINR(evt.member_price_paise)} (Members)</span>
+                              <span>{formatINR(evt.non_member_price_paise)}</span>
                             )}
                           </div>
                           <div className="text-[10px] text-[#687086]">
-                            {formatINR(evt.non_member_price_paise)} Standard
+                            {isMember ? (
+                              <span>Non-Member: {formatINR(evt.non_member_price_paise)}</span>
+                            ) : (
+                              <span>Member: {evt.member_price_paise === 0 ? 'Free' : formatINR(evt.member_price_paise)}</span>
+                            )}
                           </div>
                         </div>
 

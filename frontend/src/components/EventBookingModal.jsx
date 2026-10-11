@@ -288,14 +288,21 @@ export const EventBookingModal = ({ event, isOpen, onClose, onBookSuccess }) => 
             isMember ? 'bg-teal-50 border-teal-200 text-teal-800' : 'bg-amber-50 border-amber-200 text-amber-800'
           }`}>
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>
-                {isMember
-                  ? 'Member benefit active: 50% discount unlocked'
-                  : 'Standard non-member rate applied.'}
-              </span>
+              <Sparkles className="w-4 h-4 shrink-0 text-[#625BF6]" />
+              <div>
+                <div className="font-semibold">
+                  {isMember
+                    ? 'Club Member Rate Applied'
+                    : 'Standard Non-Member Rate Applied'}
+                </div>
+                <div className="text-[11px] opacity-80">
+                  {isMember
+                    ? 'Active chapter member discount applied'
+                    : `Club members pay ${event.member_price_paise === 0 ? '₹0 (Free)' : formatINR(event.member_price_paise)}`}
+                </div>
+              </div>
             </div>
-            <strong className="text-sm font-bold">
+            <strong className="text-sm font-bold text-[#171A2B]">
               {unitPricePaise === 0 ? 'Free Pass' : `${formatINR(unitPricePaise)}/ticket`}
             </strong>
           </div>

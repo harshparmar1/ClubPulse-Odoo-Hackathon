@@ -509,14 +509,25 @@ export const ProfilePage = () => {
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-[#F3F4F8]">
                         <span className="text-[#687086]">Membership Status</span>
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 capitalize">
-                          {profile?.membership_status || 'Active'}
-                        </span>
+                        {profile?.membership_status === 'active' ? (
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 capitalize">
+                            Active Member
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                              Non-Member
+                            </span>
+                            <Link to="/membership" className="text-[11px] font-bold text-[#625BF6] hover:underline">
+                              Join →
+                            </Link>
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-[#F3F4F8]">
                         <span className="text-[#687086]">Renewal Expiry</span>
                         <span className="font-mono text-[#171A2B]">
-                          {profile?.membership_expiry ? new Date(profile.membership_expiry).toLocaleDateString('en-IN') : 'April 2027'}
+                          {profile?.membership_expiry ? new Date(profile.membership_expiry).toLocaleDateString('en-IN') : 'Not Subscribed'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-[#F3F4F8]">
