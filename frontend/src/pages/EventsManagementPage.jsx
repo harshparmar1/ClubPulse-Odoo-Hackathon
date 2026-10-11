@@ -31,7 +31,8 @@ import {
   MoreVertical,
   LayoutGrid,
   List,
-  ShieldCheck
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
@@ -68,17 +69,22 @@ export const EventsManagementPage = () => {
 
   // Action status toast
   const [actionNotice, setActionNotice] = useState(null);
+  const [pendingVolunteerCount, setPendingVolunteerCount] = useState(0);
 
   const fetchEventsAndSummaries = async () => {
     try {
       setLoading(true);
-      const [evData, readyData, summaryData] = await Promise.all([
+      const [evData, readyData, summaryData, volData] = await Promise.all([
         api.get('/api/events').catch(() => []),
         api.get('/api/readiness/events').catch(() => []),
-        api.get('/api/tickets/events-summary').catch(() => [])
+        api.get('/api/tickets/events-summary').catch(() => []),
+        api.get('/api/events/volunteer-applications').catch(() => [])
       ]);
       setEvents(evData || []);
       setReadinessSummaries(readyData || []);
+      
+      const pendingVols = (volData || []).filter((v) => v.status === 'pending').length;
+      setPendingVolunteerCount(pendingVols);
       
       const map = {};
       (summaryData || []).forEach((s) => {
@@ -241,8 +247,31 @@ export const EventsManagementPage = () => {
             </p>
           </div>
 
-          {isOrganizer && (
-            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+            <Link
+              to="/organizer/volunteers"
+              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center gap-2 transition-all transform active:scale-98"
+              title="Review & approve student volunteer requests"
+            >
+              <UserCheck className="w-4 h-4 text-emerald-700" />
+              <span>Volunteer Registrations</span>
+              {pendingVolunteerCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
+                  {pendingVolunteerCount}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              to="/organizer/tasks"
+              className="w-full sm:w-auto px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center gap-2 transition-all transform active:scale-98"
+              title="Volunteer & Sprint Task Coordination Board"
+            >
+              <Kanban className="w-4 h-4 text-indigo-700" />
+              <span>Volunteer Tasks</span>
+            </Link>
+
+            {isOrganizer && (
               <Link
                 to="/organizer/events/new"
                 className="w-full sm:w-auto px-5 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-bold shadow-md shadow-[#625BF6]/25 flex items-center justify-center gap-2 transition-all transform active:scale-98"
@@ -250,8 +279,8 @@ export const EventsManagementPage = () => {
                 <Plus className="w-4 h-4" />
                 <span>Add Event</span>
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ============================================================== */}

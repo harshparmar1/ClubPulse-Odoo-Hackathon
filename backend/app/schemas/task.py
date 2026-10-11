@@ -9,6 +9,7 @@ class TaskCreate(BaseModel):
     assignment_role: Optional[str] = "Volunteer"  # Head, Sub-head, Volunteer
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
+    assignee_email: Optional[str] = None
     due_date: str  # YYYY-MM-DD
     priority: str = "medium"  # low, medium, high, critical
     is_critical_path: bool = False
@@ -17,10 +18,12 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    event_id: Optional[str] = None
     department: Optional[str] = None
     assignment_role: Optional[str] = None
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
+    assignee_email: Optional[str] = None
     due_date: Optional[str] = None
     priority: Optional[str] = None
     is_critical_path: Optional[bool] = None
@@ -36,6 +39,7 @@ class TaskResponse(BaseModel):
     assignment_role: Optional[str] = "Volunteer"
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
+    assignee_email: Optional[str] = None
     due_date: str
     priority: str
     is_critical_path: bool

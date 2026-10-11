@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,7 +17,11 @@ import {
   Users,
   RefreshCw,
   Check,
-  X
+  X,
+  Kanban,
+  Plus,
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
@@ -35,6 +40,34 @@ export const VolunteerRegistrationsPage = () => {
   const [search, setSearch] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const DEPARTMENTS = [
+    'Operations',
+    'Logistics',
+    'Technical',
+    'Branding',
+    'Public Relations',
+    'Food & Beverages',
+    'Decorations & Stage',
+    'Hospitality'
+  ];
+
+  // Task Creation Modal State
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskSubmitting, setTaskSubmitting] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    event_id: '',
+    department: 'Operations',
+    assignment_role: 'Volunteer',
+    assignee_name: '',
+    assignee_id: '',
+    due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    priority: 'medium',
+    is_critical_path: false,
+    status: 'todo'
+  });
 
   const showToast = (msg, type = 'success') => {
     setNotice({ msg, type });
@@ -91,6 +124,55 @@ export const VolunteerRegistrationsPage = () => {
     }
   };
 
+  const handleOpenCreateTask = (presetVolunteer = null) => {
+    setTaskForm({
+      title: '',
+      description: '',
+      event_id: presetVolunteer?.event_id || (events[0]?.id || ''),
+      department: 'Operations',
+      assignment_role: 'Volunteer',
+      assignee_name: presetVolunteer?.user_name || '',
+      assignee_id: presetVolunteer?.user_id || '',
+      assignee_email: presetVolunteer?.user_email || '',
+      due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      priority: 'medium',
+      is_critical_path: false,
+      status: 'todo'
+    });
+    setTaskModalOpen(true);
+  };
+
+  const handleCreateTaskSubmit = async (e) => {
+    e.preventDefault();
+    if (!taskForm.title.trim()) {
+      showToast('Task title is required.', 'error');
+      return;
+    }
+    setTaskSubmitting(true);
+    try {
+      await api.post('/api/tasks', {
+        title: taskForm.title.trim(),
+        description: taskForm.description || '',
+        event_id: taskForm.event_id || null,
+        department: taskForm.department || 'Operations',
+        assignment_role: taskForm.assignment_role || 'Volunteer',
+        assignee_name: taskForm.assignee_name || null,
+        assignee_id: taskForm.assignee_id || null,
+        assignee_email: taskForm.assignee_email || null,
+        due_date: taskForm.due_date,
+        priority: taskForm.priority,
+        is_critical_path: taskForm.is_critical_path,
+        status: 'todo'
+      });
+      showToast(`Task '${taskForm.title}' created & assigned successfully!`, 'success');
+      setTaskModalOpen(false);
+    } catch (err) {
+      showToast(`Task creation failed: ${err.message}`, 'error');
+    } finally {
+      setTaskSubmitting(false);
+    }
+  };
+
   const filteredApplications = applications.filter((app) => {
     const matchesSearch =
       (app.user_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -107,6 +189,8 @@ export const VolunteerRegistrationsPage = () => {
   const pendingCount = applications.filter((a) => a.status === 'pending').length;
   const approvedCount = applications.filter((a) => a.status === 'approved').length;
   const rejectedCount = applications.filter((a) => a.status === 'rejected').length;
+
+  const approvedVolunteersList = applications.filter((a) => a.status === 'approved');
 
   return (
     <DashboardLayout pageTitle="Volunteer Registrations & Selection">
@@ -144,18 +228,39 @@ export const VolunteerRegistrationsPage = () => {
               Volunteer Registrations
             </h1>
             <p className="text-xs text-[#687086] mt-1">
-              Select and approve student volunteer applicants for campus competitions and flagship events.
+              Select and approve student volunteer applicants, then create and assign operational tasks.
             </p>
           </div>
 
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="px-3.5 py-2 rounded-xl border border-[#E7E9F1] bg-white hover:bg-[#F7F8FC] text-xs font-semibold text-[#171A2B] flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
+          <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+            {/* Create Task Action Button */}
+            <button
+              onClick={() => handleOpenCreateTask(null)}
+              className="px-4 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-bold shadow-md shadow-[#625BF6]/25 flex items-center gap-1.5 transition-all transform active:scale-98 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Create Volunteer Task</span>
+            </button>
+
+            {/* Link to Kanban Task Board */}
+            <Link
+              to="/organizer/tasks"
+              className="px-3.5 py-2 rounded-xl border border-[#E7E9F1] bg-white hover:bg-[#F7F8FC] text-xs font-semibold text-[#171A2B] flex items-center gap-1.5 shadow-2xs transition-colors"
+              title="Open full Sprint & Volunteer Task Board"
+            >
+              <Kanban className="w-3.5 h-3.5 text-[#625BF6]" />
+              <span>Task Board</span>
+            </Link>
+
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="px-3.5 py-2 rounded-xl border border-[#E7E9F1] bg-white hover:bg-[#F7F8FC] text-xs font-semibold text-[#171A2B] flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -273,7 +378,7 @@ export const VolunteerRegistrationsPage = () => {
                     <th className="py-3.5 px-4">Event Applied For</th>
                     <th className="py-3.5 px-4">Applied Date</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Selection Actions</th>
+                    <th className="py-3.5 px-4 text-right">Selection & Task Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E7E9F1] font-medium text-[#171A2B]">
@@ -362,10 +467,21 @@ export const VolunteerRegistrationsPage = () => {
                             </button>
                           </div>
                         ) : app.status === 'approved' ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span>Confirmed Volunteer</span>
-                          </span>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Confirmed</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCreateTask(app)}
+                              className="px-2.5 py-1.5 rounded-lg bg-[#EEEDFE] hover:bg-[#625BF6] text-[#625BF6] hover:text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                              title={`Create and assign task to ${app.user_name}`}
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Assign Task</span>
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => handleApprove(app.id, app.user_name, app.event_title)}
@@ -383,6 +499,233 @@ export const VolunteerRegistrationsPage = () => {
             </div>
           )}
         </div>
+
+        {/* Modal: Create & Assign Volunteer Task */}
+        {taskModalOpen && (
+          <div className="fixed inset-0 z-50 bg-[#17182B]/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-[#E7E9F1] space-y-4 animate-in fade-in overflow-hidden max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E7E9F1]">
+                <div>
+                  <h3 className="text-lg font-bold text-[#171A2B] flex items-center gap-2">
+                    <Kanban className="w-5 h-5 text-[#625BF6]" />
+                    <span>Create & Assign Volunteer Task</span>
+                  </h3>
+                  <p className="text-xs text-[#687086] mt-0.5">
+                    Assign responsibilities to student volunteers for event execution.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTaskModalOpen(false)}
+                  className="p-1.5 rounded-lg text-[#8B93A7] hover:text-[#171A2B] hover:bg-[#F0F2F7]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-xs">
+                {/* Task Title */}
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Task Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Stage Setup & Audio Check"
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Description & Instructions
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Provide specific guidelines, location, or checkpoints..."
+                    value={taskForm.description}
+                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                  />
+                </div>
+
+                {/* Associated Event */}
+                <div>
+                  <label className="block font-semibold text-[#171A2B] mb-1">
+                    Associated Event
+                  </label>
+                  <select
+                    value={taskForm.event_id}
+                    onChange={(e) => setTaskForm({ ...taskForm, event_id: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                  >
+                    <option value="">General Club Operations</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} ({ev.event_date ? ev.event_date.slice(0, 10) : ''})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Department */}
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Department *
+                    </label>
+                    <select
+                      value={taskForm.department}
+                      onChange={(e) => setTaskForm({ ...taskForm, department: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    >
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Assignment Role */}
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Assignment Role
+                    </label>
+                    <select
+                      value={taskForm.assignment_role}
+                      onChange={(e) => setTaskForm({ ...taskForm, assignment_role: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    >
+                      <option value="Volunteer">Volunteer</option>
+                      <option value="Sub-head">Sub-head</option>
+                      <option value="Head">Department Head</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Assignee Volunteer */}
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Assignee Volunteer
+                    </label>
+                    {approvedVolunteersList.length > 0 ? (
+                      <select
+                        value={taskForm.assignee_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const found = approvedVolunteersList.find((v) => v.user_name === val);
+                          setTaskForm({
+                            ...taskForm,
+                            assignee_name: val,
+                            assignee_id: found ? found.user_id : '',
+                            assignee_email: found ? found.user_email : ''
+                          });
+                        }}
+                        className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                      >
+                        <option value="">Unassigned / Open</option>
+                        {approvedVolunteersList.map((vol) => (
+                          <option key={vol.id} value={vol.user_name}>
+                            {vol.user_name} ({vol.user_roll || vol.user_email})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="e.g. Rohit Verma"
+                        value={taskForm.assignee_name}
+                        onChange={(e) =>
+                          setTaskForm({
+                            ...taskForm,
+                            assignee_name: e.target.value,
+                            assignee_id: '',
+                            assignee_email: ''
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                      />
+                    )}
+                  </div>
+
+                  {/* Due Date */}
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Due Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={taskForm.due_date}
+                      onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  {/* Priority */}
+                  <div>
+                    <label className="block font-semibold text-[#171A2B] mb-1">
+                      Priority Level
+                    </label>
+                    <select
+                      value={taskForm.priority}
+                      onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                    >
+                      <option value="low">Low Priority</option>
+                      <option value="medium">Medium Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+
+                  {/* Critical Path Checkbox */}
+                  <div className="pt-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={taskForm.is_critical_path}
+                        onChange={(e) => setTaskForm({ ...taskForm, is_critical_path: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#625BF6] focus:ring-[#625BF6]"
+                      />
+                      <span className="font-semibold text-[#171A2B]">Critical Path Item</span>
+                    </label>
+                    <span className="text-[10px] text-[#8B93A7] block mt-0.5">
+                      Monitored by Risk Engine
+                    </span>
+                  </div>
+                </div>
+
+                {/* Form Buttons */}
+                <div className="pt-3 border-t border-[#E7E9F1] flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTaskModalOpen(false)}
+                    className="px-4 py-2 border rounded-xl border-[#E7E9F1] text-[#687086] hover:text-[#171A2B] font-semibold transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={taskSubmitting}
+                    className="px-5 py-2 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-[#625BF6]/25 transition-all cursor-pointer"
+                  >
+                    <span>{taskSubmitting ? 'Creating Task...' : 'Create & Assign Task'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </div>
     </DashboardLayout>

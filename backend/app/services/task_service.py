@@ -1,4 +1,5 @@
 import uuid
+import re
 from datetime import datetime, date
 from typing import List, Optional
 from fastapi import HTTPException
@@ -16,6 +17,127 @@ DEPARTMENTS = [
     "Hospitality"
 ]
 
+def _sync_volunteer_assignment(
+    db,
+    event_id: Optional[str],
+    event_title: Optional[str],
+    assignee_id: Optional[str],
+    assignee_name: Optional[str],
+    assignee_email: Optional[str],
+    department: str,
+    role: str,
+    task_title: str,
+    task_id: str,
+    due_date: str
+):
+    """
+    Ensures that when a task is created or updated:
+    1. Resolves the real student/volunteer user document.
+    2. Automatically assigns the event to the volunteer (users.volunteer_events, is_volunteer=True).
+    3. Updates members collection and creates/approves volunteer_requests entry.
+    4. Issues a direct notification to the student.
+    """
+    user = None
+    # 1. Search by assignee_id if valid
+    if assignee_id and not assignee_id.startswith(("usr_vol_auto", "vol_auto", "usr_auto")):
+        user = db["users"].find_one({"id": assignee_id})
+
+    # 2. Search by assignee_email
+    if not user and assignee_email:
+        user = db["users"].find_one({"email": assignee_email.lower().strip()})
+
+    # 3. Search by assignee_name in users
+    if not user and assignee_name and assignee_name.strip():
+        clean_name = assignee_name.strip()
+        user = db["users"].find_one({"full_name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+
+    # 4. Search in volunteer_requests to link user_id
+    if not user and assignee_name and assignee_name.strip():
+        clean_name = assignee_name.strip()
+        vreq = db["volunteer_requests"].find_one({"user_name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+        if vreq and vreq.get("user_id"):
+            user = db["users"].find_one({"id": vreq["user_id"]})
+
+    real_id = assignee_id
+    real_name = assignee_name
+    real_email = assignee_email
+
+    if user:
+        real_id = user["id"]
+        real_name = user.get("full_name") or assignee_name
+        real_email = user.get("email") or assignee_email
+        now_iso = datetime.utcnow().isoformat()
+
+        # If an event is associated, assign the event to the volunteer
+        if event_id:
+            # Update users collection
+            db["users"].update_one(
+                {"id": user["id"]},
+                {
+                    "$set": {
+                        "is_volunteer": True,
+                        "membership_role": "volunteer"
+                    },
+                    "$addToSet": {
+                        "volunteer_events": event_id
+                    }
+                }
+            )
+
+            # Update members collection
+            db["members"].update_many(
+                {"$or": [{"user_id": user["id"]}, {"email": user.get("email")}]},
+                {"$set": {"membership_role": "volunteer"}}
+            )
+
+            # Update or create volunteer_requests entry (marked approved)
+            vreq_existing = db["volunteer_requests"].find_one({
+                "event_id": event_id,
+                "$or": [{"user_id": user["id"]}, {"user_email": user.get("email")}]
+            })
+            if vreq_existing:
+                db["volunteer_requests"].update_one(
+                    {"id": vreq_existing["id"]},
+                    {"$set": {
+                        "status": "approved",
+                        "department": department,
+                        "role": role,
+                        "updated_at": now_iso
+                    }}
+                )
+            else:
+                db["volunteer_requests"].insert_one({
+                    "id": f"vreq_{uuid.uuid4().hex[:8]}",
+                    "event_id": event_id,
+                    "event_title": event_title or "Assigned Event",
+                    "user_id": user["id"],
+                    "user_name": real_name,
+                    "user_email": real_email or "",
+                    "user_roll": user.get("roll_number", ""),
+                    "department": department,
+                    "preferred_department": department,
+                    "skills": [f"Assigned {role}"],
+                    "reason": f"Assigned {role} sprint task by Administrator/Organizer",
+                    "status": "approved",
+                    "created_at": now_iso,
+                    "updated_at": now_iso
+                })
+
+            # Issue notification to student
+            db["notifications"].insert_one({
+                "id": f"notif_{uuid.uuid4().hex[:8]}",
+                "user_id": user["id"],
+                "title": f"Assigned to {event_title or 'Event'}",
+                "message": f"You have been assigned to event '{event_title or 'Event'}' as {role} ({department}). Task: {task_title} (Due: {due_date}).",
+                "type": "task_assignment",
+                "event_id": event_id,
+                "task_id": task_id,
+                "read": False,
+                "created_at": now_iso
+            })
+
+    return real_id, real_name, real_email
+
 class TaskService:
     @staticmethod
     def list_tasks(event_id: Optional[str] = None, assignee_id: Optional[str] = None) -> List[TaskResponse]:
@@ -23,12 +145,18 @@ class TaskService:
         query = {}
         if event_id:
             query["event_id"] = event_id
+
         if assignee_id:
-            query["$or"] = [
-                {"assignee_id": assignee_id},
-                {"assignee_id": None},
-                {"assignee_id": ""}
-            ]
+            or_conditions = [{"assignee_id": assignee_id}]
+            user = db["users"].find_one({"id": assignee_id})
+            if user:
+                if user.get("email"):
+                    or_conditions.append({"assignee_email": user["email"]})
+                if user.get("full_name"):
+                    clean_name = user["full_name"].strip()
+                    or_conditions.append({"assignee_name": clean_name})
+                    or_conditions.append({"assignee_name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+            query["$or"] = or_conditions
 
         cursor = db["tasks"].find(query).sort("due_date", 1)
         today_str = date.today().isoformat()
@@ -45,6 +173,7 @@ class TaskService:
                 assignment_role=doc.get("assignment_role") or "Volunteer",
                 assignee_id=doc.get("assignee_id"),
                 assignee_name=doc.get("assignee_name"),
+                assignee_email=doc.get("assignee_email"),
                 due_date=doc["due_date"],
                 priority=doc.get("priority", "medium"),
                 is_critical_path=doc.get("is_critical_path", False),
@@ -97,6 +226,21 @@ class TaskService:
         today_str = date.today().isoformat()
         is_overdue = (data.due_date < today_str) and (data.status != "done")
 
+        # Resolve real volunteer user & sync event assignment to volunteer
+        real_assignee_id, real_assignee_name, real_assignee_email = _sync_volunteer_assignment(
+            db=db,
+            event_id=data.event_id,
+            event_title=event_title,
+            assignee_id=data.assignee_id,
+            assignee_name=data.assignee_name,
+            assignee_email=data.assignee_email,
+            department=dept,
+            role=role,
+            task_title=data.title,
+            task_id=task_id,
+            due_date=data.due_date
+        )
+
         doc = {
             "id": task_id,
             "title": data.title,
@@ -105,8 +249,9 @@ class TaskService:
             "event_title": event_title,
             "department": dept,
             "assignment_role": role,
-            "assignee_id": data.assignee_id,
-            "assignee_name": data.assignee_name,
+            "assignee_id": real_assignee_id,
+            "assignee_name": real_assignee_name,
+            "assignee_email": real_assignee_email,
             "due_date": data.due_date,
             "priority": data.priority,
             "is_critical_path": data.is_critical_path,
@@ -124,8 +269,9 @@ class TaskService:
             event_title=event_title,
             department=dept,
             assignment_role=role,
-            assignee_id=data.assignee_id,
-            assignee_name=data.assignee_name,
+            assignee_id=real_assignee_id,
+            assignee_name=real_assignee_name,
+            assignee_email=real_assignee_email,
             due_date=data.due_date,
             priority=data.priority,
             is_critical_path=data.is_critical_path,
@@ -172,6 +318,37 @@ class TaskService:
                     )
 
         update_dict = {k: v for k, v in data.dict().items() if v is not None}
+
+        # If assignee or event is updated, sync volunteer assignment
+        assignee_id_to_sync = update_dict.get("assignee_id", task.get("assignee_id"))
+        assignee_name_to_sync = update_dict.get("assignee_name", task.get("assignee_name"))
+        assignee_email_to_sync = update_dict.get("assignee_email", task.get("assignee_email"))
+
+        event_title = task.get("event_title")
+        if target_event_id:
+            ev = db["events"].find_one({"id": target_event_id})
+            if ev:
+                event_title = ev["title"]
+                update_dict["event_title"] = event_title
+
+        if assignee_id_to_sync or assignee_name_to_sync:
+            real_id, real_name, real_email = _sync_volunteer_assignment(
+                db=db,
+                event_id=target_event_id,
+                event_title=event_title,
+                assignee_id=assignee_id_to_sync,
+                assignee_name=assignee_name_to_sync,
+                assignee_email=assignee_email_to_sync,
+                department=target_dept,
+                role=target_role,
+                task_title=update_dict.get("title", task.get("title", "")),
+                task_id=task_id,
+                due_date=update_dict.get("due_date", task.get("due_date", ""))
+            )
+            update_dict["assignee_id"] = real_id
+            update_dict["assignee_name"] = real_name
+            update_dict["assignee_email"] = real_email
+
         if update_dict:
             db["tasks"].update_one({"id": task_id}, {"$set": update_dict})
 
@@ -189,6 +366,7 @@ class TaskService:
             assignment_role=updated.get("assignment_role") or "Volunteer",
             assignee_id=updated.get("assignee_id"),
             assignee_name=updated.get("assignee_name"),
+            assignee_email=updated.get("assignee_email"),
             due_date=updated["due_date"],
             priority=updated.get("priority", "medium"),
             is_critical_path=updated.get("is_critical_path", False),

@@ -36,6 +36,7 @@ class ExpenseClaimCreate(BaseModel):
     description: str
     event_id: Optional[str] = None
     receipt_url: Optional[str] = None
+    receipt_filename: Optional[str] = None
 
 class ExpenseReviewRequest(BaseModel):
     action: str = Field(..., pattern="^(approve|reject|disburse)$")
@@ -51,6 +52,7 @@ class ExpenseResponse(BaseModel):
     description: str
     event_id: Optional[str] = None
     receipt_url: Optional[str] = None
+    receipt_filename: Optional[str] = None
     status: str  # pending, approved, rejected, disbursed
     reviewer_notes: Optional[str] = None
     created_at: str

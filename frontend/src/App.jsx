@@ -86,7 +86,7 @@ export default function App() {
           <Route
             path="/my-tasks"
             element={
-              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']} allowVolunteer={true}>
+              <ProtectedRoute>
                 <StudentTasksPage />
               </ProtectedRoute>
             }
@@ -140,6 +140,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/volunteers"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <VolunteerRegistrationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/organizer/events"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
@@ -181,6 +189,14 @@ export default function App() {
           />
           <Route
             path="/organizer/tasks"
+            element={
+              <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
+                <TaskBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/tasks"
             element={
               <ProtectedRoute allowedRoles={['organizer', 'admin', 'treasurer']}>
                 <TaskBoardPage />

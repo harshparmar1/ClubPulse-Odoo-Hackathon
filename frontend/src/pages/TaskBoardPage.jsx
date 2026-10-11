@@ -58,6 +58,8 @@ export const TaskBoardPage = () => {
     department: 'Branding',
     assignment_role: 'Volunteer',
     assignee_name: '',
+    assignee_id: '',
+    assignee_email: '',
     due_date: new Date().toISOString().slice(0, 10),
     priority: 'medium',
     is_critical_path: false,
@@ -123,7 +125,8 @@ export const TaskBoardPage = () => {
         department: formState.department || 'Operations',
         assignment_role: formState.assignment_role || 'Volunteer',
         assignee_name: formState.assignee_name || null,
-        assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
+        assignee_id: formState.assignee_id || null,
+        assignee_email: formState.assignee_email || null,
         due_date: formState.due_date,
         priority: formState.priority,
         is_critical_path: formState.is_critical_path,
@@ -147,6 +150,8 @@ export const TaskBoardPage = () => {
       department: task.department || 'Operations',
       assignment_role: task.assignment_role || 'Volunteer',
       assignee_name: task.assignee_name || '',
+      assignee_id: task.assignee_id || '',
+      assignee_email: task.assignee_email || '',
       due_date: task.due_date || new Date().toISOString().slice(0, 10),
       priority: task.priority || 'medium',
       is_critical_path: task.is_critical_path || false,
@@ -168,7 +173,8 @@ export const TaskBoardPage = () => {
         department: formState.department || 'Operations',
         assignment_role: formState.assignment_role || 'Volunteer',
         assignee_name: formState.assignee_name || null,
-        assignee_id: formState.assignee_name ? 'usr_vol_auto' : null,
+        assignee_id: formState.assignee_id || null,
+        assignee_email: formState.assignee_email || null,
         due_date: formState.due_date,
         priority: formState.priority,
         is_critical_path: formState.is_critical_path,
@@ -656,7 +662,14 @@ export const TaskBoardPage = () => {
                         type="text"
                         placeholder="e.g. Vikram Malhotra"
                         value={formState.assignee_name}
-                        onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                        onChange={(e) =>
+                          setFormState({
+                            ...formState,
+                            assignee_name: e.target.value,
+                            assignee_id: '',
+                            assignee_email: ''
+                          })
+                        }
                         className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                       />
                     ) : (() => {
@@ -668,7 +681,16 @@ export const TaskBoardPage = () => {
                         <>
                           <select
                             value={formState.assignee_name}
-                            onChange={(e) => setFormState({ ...formState, assignee_name: e.target.value })}
+                            onChange={(e) => {
+                              const selectedVal = e.target.value;
+                              const matchedVol = displayVolunteers.find((v) => v.name === selectedVal);
+                              setFormState({
+                                ...formState,
+                                assignee_name: selectedVal,
+                                assignee_id: matchedVol ? matchedVol.id : '',
+                                assignee_email: matchedVol ? matchedVol.email : ''
+                              });
+                            }}
                             className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                           >
                             <option value="">

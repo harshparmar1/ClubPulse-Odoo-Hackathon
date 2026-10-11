@@ -135,6 +135,8 @@ export const DepartmentAssignmentsPage = () => {
       department: dept || 'Branding',
       assignment_role: role || 'Volunteer',
       assignee_name: '',
+      assignee_id: '',
+      assignee_email: '',
       due_date: new Date().toISOString().slice(0, 10),
       priority: 'medium',
       is_critical_path: false
@@ -155,7 +157,8 @@ export const DepartmentAssignmentsPage = () => {
         department: modalForm.department,
         assignment_role: modalForm.assignment_role,
         assignee_name: modalForm.assignee_name || null,
-        assignee_id: modalForm.assignee_name ? 'usr_auto' : null,
+        assignee_id: modalForm.assignee_id || null,
+        assignee_email: modalForm.assignee_email || null,
         due_date: modalForm.due_date,
         priority: modalForm.priority,
         is_critical_path: modalForm.is_critical_path,
@@ -645,7 +648,14 @@ export const DepartmentAssignmentsPage = () => {
                         required
                         placeholder="e.g. Rahul Sharma"
                         value={modalForm.assignee_name}
-                        onChange={(e) => setModalForm({ ...modalForm, assignee_name: e.target.value })}
+                        onChange={(e) =>
+                          setModalForm({
+                            ...modalForm,
+                            assignee_name: e.target.value,
+                            assignee_id: '',
+                            assignee_email: ''
+                          })
+                        }
                         className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                       />
                     ) : (() => {
@@ -658,7 +668,16 @@ export const DepartmentAssignmentsPage = () => {
                           <select
                             required
                             value={modalForm.assignee_name}
-                            onChange={(e) => setModalForm({ ...modalForm, assignee_name: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const matched = displayVolunteers.find((v) => v.name === val);
+                              setModalForm({
+                                ...modalForm,
+                                assignee_name: val,
+                                assignee_id: matched ? matched.id : '',
+                                assignee_email: matched ? matched.email : ''
+                              });
+                            }}
                             className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                           >
                             <option value="">

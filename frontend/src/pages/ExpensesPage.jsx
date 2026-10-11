@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, formatINR } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -13,13 +13,191 @@ import {
   Sparkles,
   ExternalLink,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Upload,
+  FileText,
+  Image,
+  Eye,
+  Trash2,
+  Paperclip
 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
 
+// ─── Receipt File Uploader ────────────────────────────────────────────────────
+const ReceiptUploader = ({ receiptFile, receiptPreview, onFileChange, onClear }) => {
+  const inputRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) onFileChange(file);
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); setDragging(true); };
+  const handleDragLeave = () => setDragging(false);
+
+  const handleInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onFileChange(file);
+  };
+
+  const isPdf = receiptFile?.type === 'application/pdf';
+
+  if (receiptFile) {
+    return (
+      <div className="border border-[#625BF6]/30 rounded-xl bg-[#EEEDFE]/40 p-3 flex items-center gap-3">
+        {isPdf ? (
+          <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5 text-rose-500" />
+          </div>
+        ) : receiptPreview ? (
+          <img
+            src={receiptPreview}
+            alt="Receipt preview"
+            className="w-10 h-10 rounded-lg object-cover border border-[#E7E9F1] shrink-0"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0">
+            <Image className="w-5 h-5 text-indigo-400" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-[#171A2B] truncate">{receiptFile.name}</p>
+          <p className="text-[10px] text-[#8B93A7]">
+            {(receiptFile.size / 1024).toFixed(1)} KB · {isPdf ? 'PDF Document' : 'Image'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="p-1.5 rounded-lg hover:bg-rose-50 text-[#8B93A7] hover:text-rose-500 transition-colors"
+          title="Remove file"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onClick={() => inputRef.current?.click()}
+      className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer transition-all ${
+        dragging
+          ? 'border-[#625BF6] bg-[#EEEDFE]/60 scale-[1.01]'
+          : 'border-[#E7E9F1] bg-[#F7F8FC] hover:border-[#625BF6]/50 hover:bg-[#EEEDFE]/30'
+      }`}
+    >
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${dragging ? 'bg-[#625BF6] text-white' : 'bg-[#625BF6]/10 text-[#625BF6]'}`}>
+        <Upload className="w-4.5 h-4.5" />
+      </div>
+      <div className="text-center">
+        <p className="text-xs font-semibold text-[#171A2B]">
+          {dragging ? 'Drop your receipt here' : 'Upload Fee Receipt'}
+        </p>
+        <p className="text-[10px] text-[#8B93A7] mt-0.5">
+          Drag & drop or click · JPG, PNG, PDF up to 8MB
+        </p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+        onChange={handleInputChange}
+        className="hidden"
+      />
+    </div>
+  );
+};
+
+// ─── Receipt Viewer Cell ──────────────────────────────────────────────────────
+const ReceiptCell = ({ receiptUrl, receiptFilename }) => {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  if (!receiptUrl) {
+    return <span className="text-[10px] text-[#8B93A7] italic">No attachment</span>;
+  }
+  const isPdf = receiptUrl.startsWith('data:application/pdf') || receiptUrl.endsWith('.pdf');
+  const isDataUrl = receiptUrl.startsWith('data:');
+  const isImage = receiptUrl.startsWith('data:image') || (!isPdf && !receiptUrl.endsWith('.pdf'));
+
+  return (
+    <>
+      <div className="flex items-center gap-1.5">
+        {isImage && isDataUrl ? (
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#625BF6] hover:underline"
+          >
+            <Eye className="w-3 h-3" />
+            <span>View Receipt</span>
+          </button>
+        ) : (
+          <a
+            href={receiptUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#625BF6] hover:underline"
+          >
+            {isPdf ? <FileText className="w-3 h-3" /> : <ExternalLink className="w-3 h-3" />}
+            <span>{isPdf ? 'View PDF' : 'View Bill'}</span>
+          </a>
+        )}
+      </div>
+      {receiptFilename && (
+        <p className="text-[9px] text-[#8B93A7] truncate max-w-[110px]" title={receiptFilename}>
+          {receiptFilename}
+        </p>
+      )}
+
+      {/* Lightbox for image receipts */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#E7E9F1]">
+              <div>
+                <p className="text-xs font-bold text-[#171A2B]">Fee Receipt</p>
+                {receiptFilename && (
+                  <p className="text-[10px] text-[#8B93A7]">{receiptFilename}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-[#F7F8FC] text-[#687086]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-[#F7F8FC] max-h-[70vh] overflow-auto">
+              <img
+                src={receiptUrl}
+                alt="Fee Receipt"
+                className="max-w-full h-auto rounded-xl object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export const ExpensesPage = () => {
   const { user, role, isVolunteer } = useAuth();
   const [expenses, setExpenses] = useState([]);
@@ -31,7 +209,9 @@ export const ExpensesPage = () => {
   const [amountInr, setAmountInr] = useState('');
   const [category, setCategory] = useState('logistics');
   const [description, setDescription] = useState('');
-  const [receiptUrl, setReceiptUrl] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -47,7 +227,6 @@ export const ExpensesPage = () => {
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      // Organizers, Treasurers, and Admins fetch all claims; volunteers fetch their own
       const endpoint = canReview ? '/api/expenses' : '/api/expenses/my-claims';
       const data = await api.get(endpoint);
       setExpenses(data || []);
@@ -62,29 +241,83 @@ export const ExpensesPage = () => {
     fetchExpenses();
   }, [role, isVolunteer, user]);
 
+  const handleFileChange = (file) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      setErrorMsg('Only images (JPG, PNG, WebP) or PDF files are accepted.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorMsg('File size must be under 8MB.');
+      return;
+    }
+    setErrorMsg('');
+    setReceiptFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => setReceiptPreview(e.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setReceiptPreview(null);
+    }
+  };
+
+  const clearFile = () => {
+    setReceiptFile(null);
+    setReceiptPreview(null);
+  };
+
   const handleSubmitClaim = async (e) => {
     e.preventDefault();
     if (!amountInr || !description) return;
+    if (!receiptFile) {
+      setErrorMsg('Please upload your fee receipt before submitting.');
+      return;
+    }
     setSubmitLoading(true);
     setErrorMsg('');
 
     try {
+      // Step 1: Upload receipt file
+      setUploadingReceipt(true);
+      const formData = new FormData();
+      formData.append('file', receiptFile);
+
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const uploadRes = await fetch('/api/expenses/upload-receipt', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        throw new Error(err.detail || 'Receipt upload failed.');
+      }
+      const uploadData = await uploadRes.json();
+      setUploadingReceipt(false);
+
+      // Step 2: Submit claim with receipt URL
       await api.post('/api/expenses/claim', {
         amount_paise: Math.round(Number(amountInr) * 100),
         category,
         description,
-        receipt_url: receiptUrl || null
+        receipt_url: uploadData.url,
+        receipt_filename: uploadData.filename
       });
+
       setClaimModalOpen(false);
       setAmountInr('');
       setDescription('');
-      setReceiptUrl('');
+      setReceiptFile(null);
+      setReceiptPreview(null);
       fetchExpenses();
-      showNotice('Reimbursement claim submitted successfully.');
+      showNotice('Reimbursement claim submitted successfully with receipt.');
     } catch (err) {
       setErrorMsg(err.message || 'Claim submission failed.');
     } finally {
       setSubmitLoading(false);
+      setUploadingReceipt(false);
     }
   };
 
@@ -124,14 +357,14 @@ export const ExpensesPage = () => {
             </h1>
             <p className="text-xs sm:text-sm text-[#687086] mt-1">
               {isOrganizer
-                ? 'Review out-of-pocket expense claims and complaints submitted by event volunteers.'
-                : 'Submit out-of-pocket receipts for chapter event supplies or track pending claims.'}
+                ? 'Review out-of-pocket expense claims and receipts submitted by event volunteers.'
+                : 'Upload your fee receipt and submit out-of-pocket claims for chapter event expenses.'}
             </p>
           </div>
 
-          {/* Remove "Submit New Claim" on Organizer side. Only show for Volunteers / Members */}
           {!isOrganizer && (
             <button
+              id="submit-new-claim-btn"
               onClick={() => setClaimModalOpen(true)}
               className="px-4 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer"
             >
@@ -152,7 +385,7 @@ export const ExpensesPage = () => {
                 Volunteer Claims Inbox
               </h4>
               <p className="text-[11px] text-[#687086] mt-0.5 leading-relaxed">
-                Out-of-pocket expense reimbursement claims and complaints raised by volunteers are displayed below for organizer review and operational approval. Organizers do not submit claims here.
+                Out-of-pocket expense reimbursement claims submitted by volunteers — including attached fee receipts — are displayed below for organizer review.
               </p>
             </div>
           </div>
@@ -171,8 +404,8 @@ export const ExpensesPage = () => {
                 title={isOrganizer ? "No volunteer reimbursement claims found" : "No expense reimbursement claims found"}
                 description={
                   isOrganizer
-                    ? "When volunteers submit out-of-pocket event expense claims or complaints, they will display here."
-                    : "Click 'Submit New Claim' to submit your out-of-pocket receipts."
+                    ? "When volunteers submit out-of-pocket event expense claims with receipts, they will display here."
+                    : "Click 'Submit New Claim' to upload your fee receipt and submit a reimbursement claim."
                 }
               />
             </div>
@@ -185,7 +418,7 @@ export const ExpensesPage = () => {
                     <th className="py-3.5 px-4">Volunteer / Claimant</th>
                     <th className="py-3.5 px-4">Category</th>
                     <th className="py-3.5 px-4">Description</th>
-                    <th className="py-3.5 px-4">Receipt</th>
+                    <th className="py-3.5 px-4">Fee Receipt</th>
                     <th className="py-3.5 px-4">Amount</th>
                     <th className="py-3.5 px-4">Status</th>
                     {canReview && <th className="py-3.5 px-4 text-right">Actions</th>}
@@ -220,19 +453,10 @@ export const ExpensesPage = () => {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        {exp.receipt_url ? (
-                          <a
-                            href={exp.receipt_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#625BF6] hover:underline"
-                          >
-                            <span>View Bill</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span className="text-[10px] text-[#8B93A7]">No Attachment</span>
-                        )}
+                        <ReceiptCell
+                          receiptUrl={exp.receipt_url}
+                          receiptFilename={exp.receipt_filename}
+                        />
                       </td>
 
                       <td className="py-3.5 px-4 font-bold text-sm text-[#171A2B]">
@@ -306,15 +530,18 @@ export const ExpensesPage = () => {
           )}
         </div>
 
-        {/* Claim Modal (For Volunteers/Students when submitting claims) */}
+        {/* ── Claim Modal (For Students / Volunteers) ── */}
         {claimModalOpen && !isOrganizer && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full border border-[#E7E9F1] shadow-2xl p-6 space-y-4">
+            <div className="bg-white rounded-2xl max-w-md w-full border border-[#E7E9F1] shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-[#E7E9F1]">
-                <h3 className="font-bold text-base text-[#171A2B]">Submit Out-of-Pocket Expense Claim</h3>
+                <div>
+                  <h3 className="font-bold text-base text-[#171A2B]">Submit Reimbursement Claim</h3>
+                  <p className="text-[10px] text-[#8B93A7] mt-0.5">Attach your original fee receipt for verification</p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setClaimModalOpen(false)}
+                  onClick={() => { setClaimModalOpen(false); clearFile(); setErrorMsg(''); }}
                   className="p-1 rounded-lg hover:bg-[#F7F8FC] text-[#687086]"
                 >
                   <X className="w-5 h-5" />
@@ -322,12 +549,14 @@ export const ExpensesPage = () => {
               </div>
 
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-[#D9485F]/10 border border-[#D9485F]/20 text-xs text-[#D9485F]">
-                  {errorMsg}
+                <div className="p-3 rounded-xl bg-[#D9485F]/10 border border-[#D9485F]/20 text-xs text-[#D9485F] flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
                 </div>
               )}
 
               <form onSubmit={handleSubmitClaim} className="space-y-4 text-xs">
+                {/* Amount */}
                 <div>
                   <label className="block font-semibold text-[#171A2B] mb-1">
                     Amount Spent (INR) *
@@ -335,6 +564,7 @@ export const ExpensesPage = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="1"
                     required
                     placeholder="e.g. 1450"
                     value={amountInr}
@@ -343,6 +573,7 @@ export const ExpensesPage = () => {
                   />
                 </div>
 
+                {/* Category */}
                 <div>
                   <label className="block font-semibold text-[#171A2B] mb-1">Category *</label>
                   <select
@@ -358,6 +589,7 @@ export const ExpensesPage = () => {
                   </select>
                 </div>
 
+                {/* Description */}
                 <div>
                   <label className="block font-semibold text-[#171A2B] mb-1">Description & Reason *</label>
                   <textarea
@@ -370,33 +602,55 @@ export const ExpensesPage = () => {
                   />
                 </div>
 
+                {/* Fee Receipt Upload */}
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">
-                    Receipt / Invoice Link (URL)
+                  <label className="block font-semibold text-[#171A2B] mb-1 flex items-center gap-1">
+                    <Paperclip className="w-3 h-3 text-[#625BF6]" />
+                    Fee Receipt *
                   </label>
-                  <input
-                    type="url"
-                    placeholder="https://drive.google.com/... or image link"
-                    value={receiptUrl}
-                    onChange={(e) => setReceiptUrl(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E7E9F1] rounded-xl bg-[#F7F8FC] text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#625BF6]"
+                  <ReceiptUploader
+                    receiptFile={receiptFile}
+                    receiptPreview={receiptPreview}
+                    onFileChange={handleFileChange}
+                    onClear={clearFile}
                   />
+                  <p className="text-[10px] text-[#8B93A7] mt-1.5">
+                    ⓘ Original receipts are required for reimbursement approval
+                  </p>
                 </div>
+
+                {/* Upload progress indicator */}
+                {uploadingReceipt && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200">
+                    <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[11px] text-indigo-700 font-medium">Uploading receipt...</span>
+                  </div>
+                )}
 
                 <div className="pt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setClaimModalOpen(false)}
+                    onClick={() => { setClaimModalOpen(false); clearFile(); setErrorMsg(''); }}
                     className="px-4 py-2 text-xs font-semibold text-[#687086] hover:bg-[#F7F8FC] rounded-xl"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={submitLoading}
-                    className="px-4 py-2 text-xs font-bold bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl shadow-2xs transition-colors"
+                    disabled={submitLoading || !receiptFile}
+                    className="px-4 py-2 text-xs font-bold bg-[#625BF6] hover:bg-[#5048E5] disabled:opacity-60 text-white rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
                   >
-                    {submitLoading ? 'Submitting...' : 'Submit Claim'}
+                    {submitLoading ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        {uploadingReceipt ? 'Uploading...' : 'Submitting...'}
+                      </>
+                    ) : (
+                      <>
+                        <Receipt className="w-3 h-3" />
+                        Submit Claim
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

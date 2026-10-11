@@ -80,6 +80,8 @@ export const OrganizerOverview = () => {
     department: 'Branding',
     assignment_role: 'Volunteer',
     assignee_name: '',
+    assignee_id: '',
+    assignee_email: '',
     due_date: new Date().toISOString().slice(0, 10),
     priority: 'high',
     is_critical_path: true,
@@ -186,7 +188,8 @@ export const OrganizerOverview = () => {
         department: taskForm.department || 'Operations',
         assignment_role: taskForm.assignment_role || 'Volunteer',
         assignee_name: taskForm.assignee_name || null,
-        assignee_id: taskForm.assignee_name ? 'vol_auto' : null,
+        assignee_id: taskForm.assignee_id || null,
+        assignee_email: taskForm.assignee_email || null,
         due_date: taskForm.due_date,
         priority: taskForm.priority,
         is_critical_path: taskForm.is_critical_path,
@@ -716,7 +719,14 @@ export const OrganizerOverview = () => {
                         required
                         placeholder="e.g. Ananya Roy"
                         value={taskForm.assignee_name}
-                        onChange={(e) => setTaskForm({ ...taskForm, assignee_name: e.target.value })}
+                        onChange={(e) =>
+                          setTaskForm({
+                            ...taskForm,
+                            assignee_name: e.target.value,
+                            assignee_id: '',
+                            assignee_email: ''
+                          })
+                        }
                         className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                       />
                     ) : (() => {
@@ -729,7 +739,16 @@ export const OrganizerOverview = () => {
                           <select
                             required
                             value={taskForm.assignee_name}
-                            onChange={(e) => setTaskForm({ ...taskForm, assignee_name: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const matched = displayVolunteers.find((v) => v.name === val);
+                              setTaskForm({
+                                ...taskForm,
+                                assignee_name: val,
+                                assignee_id: matched ? matched.id : '',
+                                assignee_email: matched ? matched.email : ''
+                              });
+                            }}
                             className="w-full px-3 py-2 border rounded-xl bg-[#F7F8FC] border-[#E7E9F1]"
                           >
                             <option value="">

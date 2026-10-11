@@ -336,7 +336,7 @@ export const StudentDashboard = () => {
               </>
             )}
 
-            {(isVolunteer || isOrganizer || isTreasurer) && (
+            {(isVolunteer || isOrganizer || isTreasurer || myTasks.length > 0) && (
               <>
                 <StatCard
                   title="Volunteer Tasks"
@@ -754,7 +754,7 @@ export const StudentDashboard = () => {
 
           {/* Right Column (5 cols): Volunteer Checklist OR Participant Hub */}
           <div className="lg:col-span-5 space-y-7">
-            {canVolunteer ? (
+            {canVolunteer || isVolunteer || myTasks.length > 0 ? (
               /* A. My Volunteer Checklist (VOLUNTEER ONLY) */
               <div className="bg-white rounded-2xl p-6 border border-[#E7E9F1] shadow-[0_1px_3px_rgba(23,26,43,0.03)] space-y-4">
                 <div className="flex items-center justify-between border-b border-[#E7E9F1] pb-3">

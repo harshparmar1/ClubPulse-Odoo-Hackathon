@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Activity,
@@ -94,6 +95,22 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
   const isOrganizer = ['organizer', 'admin'].includes(role);
   const isTreasurer = ['treasurer', 'admin'].includes(role);
 
+  // Live count of pending volunteer applications for admin & organizer
+  const [pendingVolunteerCount, setPendingVolunteerCount] = useState(0);
+
+  useEffect(() => {
+    if (isAdmin || isOrganizer) {
+      api.get('/api/events/volunteer-applications')
+        .then((apps) => {
+          if (Array.isArray(apps)) {
+            const pending = apps.filter((a) => a.status === 'pending').length;
+            setPendingVolunteerCount(pending);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAdmin, isOrganizer, location.pathname]);
+
   const memberNavItems = [
     ...(isOrganizer ? [{ to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }] : []),
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -113,7 +130,7 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
         }
       ]
       : []),
-    ...(canVolunteer && !isOrganizer && !isTreasurer
+    ...((canVolunteer || isVolunteer) && !isOrganizer && !isTreasurer
       ? [
         { to: '/my-tasks', label: 'My Volunteer Tasks', icon: CheckSquare }
       ]
@@ -132,7 +149,13 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
   const isItemActive = (to) => {
     if (!to) return false;
     if (to === '/organizer/events') {
-      return location.pathname.startsWith('/organizer/events');
+      return location.pathname.startsWith('/organizer/events') && !location.pathname.startsWith('/organizer/events/new');
+    }
+    if (to === '/organizer/volunteers' || to === '/admin/volunteers') {
+      return location.pathname === '/organizer/volunteers' || location.pathname === '/admin/volunteers';
+    }
+    if (to === '/organizer/tasks' || to === '/admin/tasks') {
+      return location.pathname === '/organizer/tasks' || location.pathname === '/admin/tasks';
     }
     if (to === '/organizer/overview') {
       return location.pathname === '/organizer/overview';
@@ -241,8 +264,15 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                   { to: '/admin/users', label: 'User Governance', icon: Users }
                 ])}
 
-                {renderNavSection('Events', [
-                  { to: '/organizer/events', label: 'Event Registrations', icon: Calendar }
+                {renderNavSection('Events & Volunteers', [
+                  { to: '/organizer/events', label: 'Event Registrations', icon: Calendar },
+                  { 
+                    to: '/organizer/volunteers', 
+                    label: 'Volunteer Registrations', 
+                    icon: UserCheck,
+                    badge: pendingVolunteerCount > 0 ? `${pendingVolunteerCount}` : undefined
+                  },
+                  { to: '/organizer/tasks', label: 'Volunteer Tasks & Creation', icon: Kanban }
                 ])}
 
                 {renderNavSection('Finance', [
@@ -261,6 +291,13 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                   <>
                     {renderNavSection('Manage', [
                       { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                      { 
+                        to: '/organizer/volunteers', 
+                        label: 'Volunteer Registrations', 
+                        icon: UserCheck,
+                        badge: pendingVolunteerCount > 0 ? `${pendingVolunteerCount}` : undefined
+                      },
+                      { to: '/organizer/tasks', label: 'Volunteer Tasks & Creation', icon: Kanban },
                       { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
                       { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
                       { to: '/organizer/merch', label: 'Merchandise', icon: Box },
@@ -422,8 +459,15 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                     { to: '/admin/users', label: 'User Governance', icon: Users }
                   ])}
 
-                  {renderNavSection('Events', [
-                    { to: '/organizer/events', label: 'Event Registrations', icon: Calendar }
+                  {renderNavSection('Events & Volunteers', [
+                    { to: '/organizer/events', label: 'Event Registrations', icon: Calendar },
+                    { 
+                      to: '/organizer/volunteers', 
+                      label: 'Volunteer Registrations', 
+                      icon: UserCheck,
+                      badge: pendingVolunteerCount > 0 ? `${pendingVolunteerCount}` : undefined
+                    },
+                    { to: '/organizer/tasks', label: 'Volunteer Tasks & Creation', icon: Kanban }
                   ])}
 
                   {renderNavSection('Finance', [
@@ -442,6 +486,13 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
                     <>
                       {renderNavSection('Manage', [
                         { to: '/organizer/events', label: 'Events & Tickets', icon: Calendar },
+                        { 
+                          to: '/organizer/volunteers', 
+                          label: 'Volunteer Registrations', 
+                          icon: UserCheck,
+                          badge: pendingVolunteerCount > 0 ? `${pendingVolunteerCount}` : undefined
+                        },
+                        { to: '/organizer/tasks', label: 'Volunteer Tasks & Creation', icon: Kanban },
                         { to: '/organizer/budgets', label: 'Event Budgets', icon: Receipt },
                         { to: '/simulator', label: 'Live Simulator', icon: SlidersHorizontal },
                         { to: '/organizer/merch', label: 'Merchandise', icon: Box },

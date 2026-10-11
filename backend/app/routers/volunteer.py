@@ -71,6 +71,9 @@ def opt_to_volunteer(
     req_id = f"vreq_{uuid.uuid4().hex[:10]}"
     now_iso = datetime.now(timezone.utc).isoformat()
     
+    # Guarantee full student information from db["users"]
+    db_user = db["users"].find_one({"id": current_user["id"]}) or current_user
+
     new_doc = {
         "id": req_id,
         "event_id": event_id,
@@ -78,9 +81,9 @@ def opt_to_volunteer(
         "event_date": event.get("event_date", ""),
         "venue": event.get("venue", ""),
         "user_id": current_user["id"],
-        "user_name": current_user.get("full_name", "Student Volunteer"),
-        "user_email": current_user.get("email", ""),
-        "user_roll": current_user.get("roll_number", ""),
+        "user_name": db_user.get("full_name") or current_user.get("full_name", "Student Volunteer"),
+        "user_email": (db_user.get("email") or current_user.get("email", "")).lower(),
+        "user_roll": db_user.get("roll_number") or current_user.get("roll_number", ""),
         "status": "pending",
         "created_at": now_iso,
         "updated_at": now_iso
@@ -89,15 +92,15 @@ def opt_to_volunteer(
 
     # 5. Send Notification to Admin & Organizers
     create_notification(
-        title=f"New Volunteer Request: {current_user.get('full_name')}",
-        message=f"{current_user.get('full_name')} requested to volunteer for '{event.get('title')}'. Awaiting Admin approval in Action Center.",
+        title=f"New Volunteer Request: {new_doc['user_name']}",
+        message=f"{new_doc['user_name']} requested to volunteer for '{event.get('title')}'. Awaiting Admin approval in Volunteer Registrations.",
         category="volunteer",
         severity="info",
         target_roles=["admin", "organizer"],
         deduplication_key=f"vol_req_admin_{current_user['id']}_{event_id}",
         related_entity_type="volunteer_request",
         related_entity_id=req_id,
-        target_route="/action-center"
+        target_route="/organizer/volunteers"
     )
 
     # 6. Send Notification to Student
@@ -146,17 +149,49 @@ def list_all_volunteer_applications(
     db = get_database()
     cursor = db["volunteer_requests"].find({}).sort("created_at", -1)
     results = []
+    
+    events_cache = {}
+    users_cache = {}
+
     for doc in cursor:
+        event_id = doc.get("event_id")
+        event_title = doc.get("event_title")
+        event_date = doc.get("event_date")
+        venue = doc.get("venue")
+        
+        if (not event_title or not event_date) and event_id:
+            if event_id not in events_cache:
+                events_cache[event_id] = db["events"].find_one({"id": event_id})
+            ev = events_cache.get(event_id)
+            if ev:
+                event_title = event_title or ev.get("title", "Event")
+                event_date = event_date or ev.get("event_date", "")
+                venue = venue or ev.get("venue", "")
+
+        user_id = doc.get("user_id")
+        user_name = doc.get("user_name")
+        user_email = doc.get("user_email")
+        user_roll = doc.get("user_roll")
+        
+        if (not user_name or not user_email) and user_id:
+            if user_id not in users_cache:
+                users_cache[user_id] = db["users"].find_one({"id": user_id})
+            u = users_cache.get(user_id)
+            if u:
+                user_name = user_name or u.get("full_name", "Student")
+                user_email = user_email or u.get("email", "")
+                user_roll = user_roll or u.get("roll_number", "")
+
         results.append({
             "id": doc["id"],
-            "event_id": doc["event_id"],
-            "event_title": doc.get("event_title", ""),
-            "event_date": doc.get("event_date", ""),
-            "venue": doc.get("venue", ""),
-            "user_id": doc["user_id"],
-            "user_name": doc.get("user_name", ""),
-            "user_email": doc.get("user_email", ""),
-            "user_roll": doc.get("user_roll", ""),
+            "event_id": event_id,
+            "event_title": event_title or "Event",
+            "event_date": event_date or "",
+            "venue": venue or "",
+            "user_id": user_id,
+            "user_name": user_name or "Student",
+            "user_email": user_email or "",
+            "user_roll": user_roll or "",
             "status": doc.get("status", "pending"),
             "reviewed_by": doc.get("reviewed_by", None),
             "created_at": doc.get("created_at", ""),
