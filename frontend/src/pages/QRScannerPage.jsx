@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { api } from '../api/client';
+import { parseQRContent } from '../utils/ticketQR';
 import {
   Camera,
   QrCode,
@@ -60,26 +61,31 @@ export const QRScannerPage = () => {
     };
   }, []);
 
-  const verifyToken = async (token) => {
-    if (!token || loading) return;
+  const verifyToken = async (rawScan) => {
+    if (!rawScan || loading) return;
     setLoading(true);
     setCurrentResult(null);
 
+    const { token: actualToken, profile: embeddedProfile } = parseQRContent(rawScan);
+
     try {
-      const res = await api.post('/api/tickets/check-in', { qr_token: token.trim() });
+      const res = await api.post('/api/tickets/check-in', { qr_token: actualToken });
       const record = {
-        token: token.trim(),
+        token: actualToken,
         success: res.success,
         message: res.message,
-        attendeeName: res.attendee_name,
-        eventTitle: res.event_title,
+        attendeeName: res.attendee_name || embeddedProfile?.attendee_name,
+        rollNumber: res.attendee_roll_number || embeddedProfile?.roll_number,
+        department: res.attendee_department || embeddedProfile?.department,
+        email: res.attendee_email || embeddedProfile?.email,
+        eventTitle: res.event_title || embeddedProfile?.event_title,
         time: new Date().toLocaleTimeString()
       };
       setCurrentResult(record);
       setScanHistory((prev) => [record, ...prev.slice(0, 9)]);
     } catch (err) {
       const errRecord = {
-        token: token.trim(),
+        token: actualToken,
         success: false,
         message: err.message || 'Token verification failed. Check connection or ticket validity.',
         time: new Date().toLocaleTimeString()
@@ -137,10 +143,16 @@ export const QRScannerPage = () => {
               </div>
               <p className="text-xs mt-0.5 font-medium">{currentResult.message}</p>
               {currentResult.attendeeName && (
-                <div className="mt-2 text-xs font-semibold text-[#171A2B] flex items-center gap-3">
-                  <span>Attendee: <strong>{currentResult.attendeeName}</strong></span>
-                  <span>•</span>
-                  <span>Event: <strong>{currentResult.eventTitle}</strong></span>
+                <div className="mt-2 text-xs font-semibold text-[#171A2B] space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>Attendee: <strong>{currentResult.attendeeName}</strong></span>
+                    {currentResult.rollNumber && <span className="font-mono text-[11px] text-[#625BF6] bg-[#625BF6]/10 px-2 py-0.5 rounded-md">ID: {currentResult.rollNumber}</span>}
+                    {currentResult.department && <span className="text-[#687086]">• {currentResult.department}</span>}
+                  </div>
+                  <div className="text-[11px] text-[#687086] flex flex-wrap items-center gap-2">
+                    <span>Event: <strong>{currentResult.eventTitle}</strong></span>
+                    {currentResult.email && <span>• Email: {currentResult.email}</span>}
+                  </div>
                 </div>
               )}
             </div>

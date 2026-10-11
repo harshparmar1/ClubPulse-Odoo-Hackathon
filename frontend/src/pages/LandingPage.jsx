@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import gsap from 'gsap';
 import {
   Activity,
@@ -21,9 +22,11 @@ import { AnnouncementSlider } from '../components/AnnouncementSlider';
 import { api } from '../api/client';
 
 export const LandingPage = () => {
+  const { user, role, loading: authLoading } = useAuth();
   const heroRef = useRef(null);
   const cardsRef = useRef(null);
   const [announcements, setAnnouncements] = useState([]);
+
 
   useEffect(() => {
     api.get('/api/announcements')
@@ -71,6 +74,14 @@ export const LandingPage = () => {
 
     return () => ctx.revert();
   }, []);
+
+  // Authenticated users never see the landing page - redirect directly to dashboard
+  if (!authLoading && user) {
+    if (['organizer', 'admin'].includes(role)) {
+      return <Navigate to="/organizer/overview" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div ref={heroRef} className="min-h-screen bg-[#F7F8FC] text-[#171A2B] flex flex-col selection:bg-[#625BF6] selection:text-white">

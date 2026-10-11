@@ -40,6 +40,7 @@ import {
 import { StatusBadge } from './StatusBadge';
 import { NotificationDropdown } from './NotificationDropdown';
 import { MerchDrawer } from './MerchDrawer';
+import { ProfileMenu } from './ProfileMenu';
 
 export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
   const { user, role, logout, login, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
@@ -98,6 +99,7 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     ...(!isOrganizer && !isTreasurer
       ? [
+        { to: '/events', label: 'Explore Events', icon: Calendar },
         { to: '/my-tickets', label: 'My QR Passes', icon: Ticket },
         { to: '/membership', label: 'Membership Status', icon: CreditCard }
       ]
@@ -200,7 +202,7 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
         <div className="p-4 flex flex-col h-full overflow-hidden">
           {/* Logo Brand Header */}
           <div className="flex items-center justify-between pb-5 mb-4 border-b border-[#23253E]">
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <Link to={isOrganizer ? '/organizer/overview' : '/dashboard'} className="flex items-center gap-2.5 group">
               <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center font-bold shadow-md shadow-[#625BF6]/20 p-0.5 shrink-0 overflow-hidden">
                 <img src="/logo.png" alt="Skyline" className="w-full h-full object-contain" />
               </div>
@@ -235,7 +237,8 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             {isAdmin ? (
               <>
                 {renderNavSection('Administration', [
-                  { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
+                  { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard },
+                  { to: '/admin/users', label: 'User Governance', icon: Users }
                 ])}
 
                 {renderNavSection('Events', [
@@ -393,12 +396,16 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
           ></div>
           <div className="relative w-72 max-w-[80vw] bg-[#17182B] h-full p-4 flex flex-col justify-between z-10 text-white">
             <div className="flex items-center justify-between pb-4 border-b border-[#23253E]">
-              <div className="flex items-center gap-2.5">
+              <Link
+                to={isOrganizer ? '/organizer/overview' : '/dashboard'}
+                onClick={() => setMobileDrawerOpen(false)}
+                className="flex items-center gap-2.5"
+              >
                 <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-bold p-0.5 overflow-hidden">
                   <img src="/logo.png" alt="Skyline" className="w-full h-full object-contain" />
                 </div>
                 <span className="font-bold text-sm text-white">Skyline</span>
-              </div>
+              </Link>
               <button
                 onClick={() => setMobileDrawerOpen(false)}
                 className="p-1.5 rounded-lg text-[#8B93A7] hover:text-white"
@@ -411,7 +418,8 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
               {isAdmin ? (
                 <>
                   {renderNavSection('Administration', [
-                    { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard }
+                    { to: '/organizer/overview', label: 'Command Hub', icon: LayoutDashboard },
+                    { to: '/admin/users', label: 'User Governance', icon: Users }
                   ])}
 
                   {renderNavSection('Events', [
@@ -555,24 +563,9 @@ export const AppShell = ({ children, pageTitle, breadcrumbs = [] }) => {
             {/* Operational Notifications */}
             <NotificationDropdown />
 
-            {/* User Profile Pill & Logout */}
-            <div className="flex items-center gap-2 pl-2 border-l border-[#E7E9F1]">
-              <div className="w-7 h-7 rounded-lg bg-[#EEEDFE] text-[#625BF6] border border-[#D4D1FD] flex items-center justify-center font-bold text-xs shrink-0">
-                {user?.full_name?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <span className="hidden sm:inline text-xs font-semibold text-[#171A2B]">
-                {user?.full_name?.split(' ')[0]}
-              </span>
-              <button
-                onClick={() => {
-                  logout();
-                  navigate('/');
-                }}
-                className="p-1.5 text-[#687086] hover:text-[#D9485F] rounded-lg hover:bg-[#F7F8FC] transition-colors ml-1"
-                title="Log Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+            {/* Profile Dropdown Menu */}
+            <div className="pl-1 border-l border-[#E7E9F1]">
+              <ProfileMenu />
             </div>
           </div>
         </header>

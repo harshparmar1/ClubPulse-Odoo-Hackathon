@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../context/AuthContext';
 import { api, formatINR } from '../api/client';
 import { Ticket, Calendar, MapPin, CheckCircle2, Clock, QrCode, X, Sparkles, ArrowRight } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { PassQRModal } from '../components/PassQRModal';
+import { buildTicketQRData } from '../utils/ticketQR';
 
 export const MyTicketsPage = () => {
+  const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeModalTicket, setActiveModalTicket] = useState(null);
@@ -106,7 +110,7 @@ export const MyTicketsPage = () => {
                 <div className="p-3.5 bg-[#F7F8FC] rounded-xl border border-[#E7E9F1] flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="text-[11px] font-semibold text-[#171A2B]">
-                      Attendee: {tkt.user_name} ({tkt.quantity} Seat{tkt.quantity > 1 ? 's' : ''})
+                      Attendee: {tkt.user_name || user?.full_name} ({tkt.user_roll_number || user?.roll_number || 'ID Verified'})
                     </div>
                     <div className="text-[10px] font-mono text-[#687086] truncate max-w-[180px]">
                       {tkt.qr_token}
@@ -118,10 +122,10 @@ export const MyTicketsPage = () => {
 
                   <button
                     onClick={() => setActiveModalTicket(tkt)}
-                    className="p-2 bg-white rounded-xl border border-[#E7E9F1] shadow-2xs hover:border-[#625BF6] transition-colors flex flex-col items-center gap-1"
-                    title="Click to view full-screen QR pass"
+                    className="p-2 bg-white rounded-xl border border-[#E7E9F1] shadow-2xs hover:border-[#625BF6] transition-colors flex flex-col items-center gap-1 cursor-pointer"
+                    title="Click to view full-screen QR pass and student credentials"
                   >
-                    <QRCodeSVG value={tkt.qr_token} size={64} level="M" />
+                    <QRCodeSVG value={buildTicketQRData(tkt, user)} size={64} level="M" />
                     <span className="text-[9px] font-bold text-[#625BF6] uppercase">Enlarge</span>
                   </button>
                 </div>
@@ -152,43 +156,13 @@ export const MyTicketsPage = () => {
           </div>
         )}
 
-        {/* Full-screen QR code viewer */}
-        {activeModalTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[#E7E9F1]">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#625BF6]">
-                  Gate Entry Verification
-                </span>
-                <button
-                  onClick={() => setActiveModalTicket(null)}
-                  className="p-1 rounded-lg text-[#687086] hover:text-[#171A2B] hover:bg-[#F7F8FC]"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 bg-white border border-[#E7E9F1] rounded-2xl shadow-inner inline-block">
-                <QRCodeSVG value={activeModalTicket.qr_token} size={200} level="H" />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-indigo-50 text-indigo-700 border-indigo-200">
-                  {activeModalTicket.role_track === 'volunteer' ? '🤝 Volunteer Operations Pass' : '🎓 Participant Attendee Pass'}
-                </div>
-                <h3 className="font-bold text-base text-[#171A2B]">{activeModalTicket.event_title}</h3>
-                <p className="text-xs text-[#687086]">Attendee: {activeModalTicket.user_name}</p>
-                <div className="p-2 bg-[#F7F8FC] rounded-lg font-mono text-[11px] text-[#171A2B] border border-[#E7E9F1] select-all">
-                  {activeModalTicket.qr_token}
-                </div>
-              </div>
-
-              <p className="text-[11px] text-[#687086]">
-                Hold steady in front of the organizer’s camera scanner at entry.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Full-screen QR code viewer with Attendee Profile */}
+        <PassQRModal
+          ticket={activeModalTicket}
+          user={user}
+          isOpen={Boolean(activeModalTicket)}
+          onClose={() => setActiveModalTicket(null)}
+        />
       </div>
     </DashboardLayout>
   );

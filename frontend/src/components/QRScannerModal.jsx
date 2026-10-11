@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { X, Camera, CheckCircle2, AlertTriangle, RefreshCw, KeyRound } from 'lucide-react';
 import { api } from '../api/client';
+import { parseQRContent } from '../utils/ticketQR';
 
 export const QRScannerModal = ({ isOpen, onClose, onCheckInComplete }) => {
   const [scanResult, setScanResult] = useState(null);
@@ -57,18 +58,23 @@ export const QRScannerModal = ({ isOpen, onClose, onCheckInComplete }) => {
     };
   }, [isOpen]);
 
-  const handleVerifyToken = async (token) => {
-    if (!token || loading) return;
+  const handleVerifyToken = async (rawScan) => {
+    if (!rawScan || loading) return;
     setLoading(true);
     setScanResult(null);
 
+    const { token: actualToken, profile: embeddedProfile } = parseQRContent(rawScan);
+
     try {
-      const res = await api.post('/api/tickets/check-in', { qr_token: token.trim() });
+      const res = await api.post('/api/tickets/check-in', { qr_token: actualToken });
       setScanResult({
         success: res.success,
         message: res.message,
-        attendeeName: res.attendee_name,
-        eventTitle: res.event_title,
+        attendeeName: res.attendee_name || embeddedProfile?.attendee_name,
+        rollNumber: res.attendee_roll_number || embeddedProfile?.roll_number,
+        department: res.attendee_department || embeddedProfile?.department,
+        email: res.attendee_email || embeddedProfile?.email,
+        eventTitle: res.event_title || embeddedProfile?.event_title,
         time: res.checked_in_at
       });
       if (onCheckInComplete) onCheckInComplete(res);
@@ -127,8 +133,13 @@ export const QRScannerModal = ({ isOpen, onClose, onCheckInComplete }) => {
                 </div>
                 <div>{scanResult.message}</div>
                 {scanResult.attendeeName && (
-                  <div className="mt-1 text-xs opacity-90 font-medium">
-                    Attendee: {scanResult.attendeeName} • Event: {scanResult.eventTitle}
+                  <div className="mt-1 text-xs opacity-90 font-medium space-y-0.5">
+                    <div>
+                      Attendee: <strong>{scanResult.attendeeName}</strong>
+                      {scanResult.rollNumber && <span className="ml-1 font-mono text-[11px] text-teal-800">({scanResult.rollNumber})</span>}
+                      {scanResult.department && <span className="ml-1 text-slate-600">• {scanResult.department}</span>}
+                    </div>
+                    {scanResult.eventTitle && <div className="text-[11px] text-slate-600">Event: {scanResult.eventTitle}</div>}
                   </div>
                 )}
               </div>

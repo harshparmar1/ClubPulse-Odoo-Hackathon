@@ -169,7 +169,7 @@ export const MembershipPage = () => {
   return (
     <DashboardLayout
       pageTitle="Membership Status"
-      breadcrumbs={[{ label: 'Home', link: '/' }, { label: 'Membership Status' }]}
+      breadcrumbs={[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Membership Status' }]}
     >
       <div className="w-full space-y-6">
         {/* Top Header Information */}

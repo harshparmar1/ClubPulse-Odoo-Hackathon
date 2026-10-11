@@ -248,7 +248,7 @@ export const EventsManagementPage = () => {
                 className="w-full sm:w-auto px-5 py-2.5 bg-[#625BF6] hover:bg-[#5048E5] text-white rounded-xl text-xs font-bold shadow-md shadow-[#625BF6]/25 flex items-center justify-center gap-2 transition-all transform active:scale-98"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Add Event</span>
+                <span>Add Event</span>
               </Link>
             </div>
           )}

@@ -40,6 +40,8 @@ import { OrganizerReportsPage } from './pages/OrganizerReportsPage';
 import { FinancialLedgerPage } from './pages/FinancialLedgerPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { EventAnalyticsPage } from './pages/EventAnalyticsPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
@@ -270,6 +272,24 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['organizer', 'treasurer', 'admin']}>
                 <EventAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Profile & Governance Routes */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminUsersPage />
               </ProtectedRoute>
             }
           />

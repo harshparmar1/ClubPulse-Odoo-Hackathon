@@ -121,6 +121,18 @@ def create_ticket_order(
     if event.get("is_ended", False) or event.get("status") == "ended":
         raise HTTPException(status_code=400, detail="This event has concluded. Ticket bookings are closed.")
 
+    # Prevent already enrolled attendees from re-registering
+    existing_ticket = db["tickets"].find_one({
+        "event_id": data.event_id,
+        "user_id": current_user["id"],
+        "status": {"$ne": "cancelled"}
+    })
+    if existing_ticket:
+        raise HTTPException(
+            status_code=400,
+            detail="You are already enrolled in this event. Re-registration is not permitted."
+        )
+
     capacity = event.get("capacity", 100)
     booked = event.get("booked_count", 0)
     if booked + data.quantity > capacity:

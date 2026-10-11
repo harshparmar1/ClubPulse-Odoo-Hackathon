@@ -86,6 +86,10 @@ export const AuthProvider = ({ children }) => {
     await fetchCurrentUser();
   };
 
+  const updateUser = (updatedData) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedData } : updatedData));
+  };
+
   const switchTrack = async (newRole) => {
     const res = await api.post('/api/payments/switch-track', { member_role: newRole });
     await fetchCurrentUser();
@@ -121,6 +125,7 @@ export const AuthProvider = ({ children }) => {
         verifyLoginOtp,
         logout,
         refreshUser,
+        updateUser,
         switchTrack
       }}
     >

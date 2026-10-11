@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.ticket import TicketBookRequest, TicketResponse, TicketCheckInRequest, TicketCheckInResponse
 from app.services.ticket_service import TicketService
+from app.services.email_service import EmailService
 from app.core.dependencies import get_current_user, require_roles
 from app.database.mongodb import get_database
 
@@ -137,3 +138,22 @@ def get_all_events_registration_summary(
         })
 
     return summaries
+
+@router.post("/{ticket_id}/resend-email")
+def resend_ticket_email(
+    ticket_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    ticket = db["tickets"].find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+    if ticket["user_id"] != current_user["id"] and current_user.get("role") not in ["admin", "organizer"]:
+        raise HTTPException(status_code=403, detail="Not authorized to access this pass.")
+
+    event = db["events"].find_one({"id": ticket["event_id"]}) or {}
+    success = EmailService.send_ticket_qr_email(ticket, current_user, event)
+    return {
+        "success": success,
+        "message": "Ticket QR pass has been emailed to your registered address!" if success else "Email dispatch queued (check console fallback)."
+    }

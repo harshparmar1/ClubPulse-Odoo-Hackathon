@@ -38,6 +38,8 @@ import { StatusBadge } from '../components/StatusBadge';
 import { RiskAlert } from '../components/RiskAlert';
 import { AnnouncementSlider } from '../components/AnnouncementSlider';
 import { EventBookingModal } from '../components/EventBookingModal';
+import { PassQRModal } from '../components/PassQRModal';
+import { buildTicketQRData } from '../utils/ticketQR';
 
 export const StudentDashboard = () => {
   const { user, role, isMember, canVolunteer, isVolunteer, membershipRole } = useAuth();
@@ -62,7 +64,7 @@ export const StudentDashboard = () => {
     setLoading(true);
     try {
       const promises = [
-        api.get('/api/events?published_only=true').catch(() => []),
+        api.get('/api/events').catch(() => []),
         api.get('/api/tickets/my-tickets').catch(() => []),
         api.get(`/api/tasks?assignee_id=${user?.id}`).catch(() => []),
         api.get('/api/announcements').catch(() => [])
@@ -75,7 +77,7 @@ export const StudentDashboard = () => {
       }
 
       const results = await Promise.all(promises);
-      setEvents((results[0] || []).filter((e) => e.is_published !== false));
+      setEvents(results[0] || []);
       setMyTickets(results[1] || []);
       setMyTasks(results[2] || []);
       setAnnouncements(results[3] || []);
@@ -118,7 +120,7 @@ export const StudentDashboard = () => {
     year: 'numeric'
   });
 
-  const upcomingEvents = events.filter((e) => e.is_published);
+  const upcomingEvents = events;
   const activeMembersCount = allMembers.filter((m) => m.status === 'active').length;
   const criticalRisks = riskData?.risk_items?.filter((r) => r.severity === 'CRITICAL') || [];
   const warningRisks = riskData?.risk_items?.filter((r) => r.severity === 'WARNING') || [];
@@ -129,7 +131,7 @@ export const StudentDashboard = () => {
   return (
     <DashboardLayout
       pageTitle="Student Dashboard"
-      breadcrumbs={[{ label: 'Home', link: '/' }, { label: 'Student Dashboard' }]}
+      breadcrumbs={[{ label: 'Student Dashboard' }]}
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* ---------------------------------------------------- */}
@@ -511,13 +513,13 @@ export const StudentDashboard = () => {
                   <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#F7F8FC] to-[#EEEDFE]/30 border border-[#E0E3F5] flex flex-col sm:flex-row items-center gap-5">
                     <div className="bg-white p-3 rounded-xl border border-[#D4D1FD] shadow-xs shrink-0 flex flex-col items-center">
                       <QRCodeSVG
-                        value={activeTicket.qr_token || activeTicket.id}
+                        value={buildTicketQRData(activeTicket, user)}
                         size={110}
-                        level="H"
+                        level="M"
                         includeMargin={false}
                       />
-                      <span className="text-[9px] font-mono font-bold text-[#687086] mt-1.5 uppercase">
-                        {activeTicket.qr_token?.slice(0, 10) || 'GATE-PASS'}
+                      <span className="text-[9px] font-mono font-bold text-[#687086] mt-1.5 uppercase truncate max-w-[110px]">
+                        {activeTicket.user_roll_number || user?.roll_number || activeTicket.qr_token?.slice(0, 10) || 'PASS'}
                       </span>
                     </div>
 
@@ -539,6 +541,9 @@ export const StudentDashboard = () => {
                           {activeTicket.event_title}
                         </h3>
                         <div className="space-y-1 text-xs text-[#687086] mt-1">
+                          <div className="text-[11px] font-semibold text-[#171A2B]">
+                            Attendee: {activeTicket.user_name || user?.full_name} ({activeTicket.user_roll_number || user?.roll_number || 'Verified'})
+                          </div>
                           <div className="flex items-center justify-center sm:justify-start gap-1.5">
                             <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
                             <span>{activeTicket.event_date}</span>
@@ -553,15 +558,15 @@ export const StudentDashboard = () => {
                       <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
                         <button
                           onClick={() => setActiveModalTicket(activeTicket)}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#625BF6] text-white text-xs font-bold hover:bg-[#5048E5] transition-colors"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#625BF6] text-white text-xs font-bold hover:bg-[#5048E5] transition-colors cursor-pointer"
                         >
-                          Enlarge QR Code
+                          View QR & Profile
                         </button>
                         <Link
                           to="/my-tickets"
                           className="px-3 py-1.5 rounded-lg bg-white border border-[#E7E9F1] text-xs font-semibold text-[#171A2B] hover:bg-[#F3F4F8] transition-colors"
                         >
-                          Pass Details
+                          All Passes
                         </Link>
                       </div>
                     </div>
@@ -604,81 +609,145 @@ export const StudentDashboard = () => {
                     Save up to 50% with verified club member pricing
                   </p>
                 </div>
+                <Link
+                  to="/events"
+                  className="text-xs font-bold text-[#625BF6] hover:text-[#5048E5] flex items-center gap-1 group"
+                >
+                  <span>Explore All ({events.length})</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {events.map((evt) => {
-                  const capacity = evt.capacity || 100;
-                  const booked = evt.booked_count || 0;
-                  const fillPct = Math.min(100, Math.round((booked / capacity) * 100));
+                {events.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-[#E7E9F1] p-8 text-center space-y-3 sm:col-span-2 shadow-[0_1px_3px_rgba(23,26,43,0.03)]">
+                    <div className="w-12 h-12 rounded-xl bg-[#EEEDFE] text-[#625BF6] mx-auto flex items-center justify-center">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                    <div className="text-sm font-bold text-[#171A2B]">No Events Scheduled Yet</div>
+                    <p className="text-xs text-[#687086] max-w-sm mx-auto">
+                      Organizers will post new campus gatherings, workshops, and competitions here. Check back soon!
+                    </p>
+                  </div>
+                ) : (
+                  events.map((evt) => {
+                    const capacity = evt.capacity || 100;
+                    const booked = evt.booked_count || 0;
+                    const isConcluded = evt.is_ended || evt.status === 'ended';
+                    const isFull = booked >= capacity;
+                    const userTicket = myTickets.find((t) => t.event_id === evt.id && t.status !== 'cancelled');
+                    const isEnrolled = !!userTicket;
 
-                  return (
-                    <div
-                      key={evt.id}
-                      className="bg-white rounded-2xl border border-[#E7E9F1] overflow-hidden shadow-[0_1px_3px_rgba(23,26,43,0.03)] hover:border-[#D3D7E8] hover:shadow-[0_4px_12px_rgba(23,26,43,0.05)] transition-all flex flex-col justify-between"
-                    >
-                      <div className="h-32 bg-[#F3F4F8] relative overflow-hidden">
-                        <img
-                          src={
-                            evt.banner_url ||
-                            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80'
-                          }
-                          alt={evt.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2.5 right-2.5">
-                          <StatusBadge variant={booked >= capacity ? 'critical' : 'active'}>
-                            {booked >= capacity ? 'Sold Out' : `${capacity - booked} Seats Left`}
-                          </StatusBadge>
-                        </div>
-                      </div>
-
-                      <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-[#625BF6]">
-                            {evt.tags?.[0] || 'Campus Event'}
-                          </span>
-                          <h3 className="text-sm font-extrabold text-[#171A2B] line-clamp-1">
-                            {evt.title}
-                          </h3>
-                          <div className="space-y-1 text-xs text-[#687086] pt-1">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
-                              <span>{evt.event_date}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-[#A6ACBE]" />
-                              <span className="truncate">{evt.venue}</span>
-                            </div>
+                    return (
+                      <div
+                        key={evt.id}
+                        className="bg-white rounded-2xl border border-[#E7E9F1] overflow-hidden shadow-[0_1px_3px_rgba(23,26,43,0.03)] hover:border-[#D3D7E8] hover:shadow-[0_4px_12px_rgba(23,26,43,0.05)] transition-all flex flex-col justify-between"
+                      >
+                        <div className="h-32 bg-[#F3F4F8] relative overflow-hidden">
+                          <img
+                            src={
+                              evt.banner_url ||
+                              'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80'
+                            }
+                            alt={evt.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2.5 right-2.5">
+                            {isEnrolled ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#16856B] text-white shadow-xs flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Enrolled
+                              </span>
+                            ) : (
+                              <StatusBadge
+                                variant={
+                                  isConcluded
+                                    ? 'neutral'
+                                    : isFull
+                                    ? 'critical'
+                                    : !evt.is_published
+                                    ? 'warning'
+                                    : 'active'
+                                }
+                              >
+                                {isConcluded
+                                  ? 'Concluded'
+                                  : isFull
+                                  ? 'Sold Out'
+                                  : !evt.is_published
+                                  ? 'Coming Soon'
+                                  : `${capacity - booked} Seats Left`}
+                              </StatusBadge>
+                            )}
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-[#E7E9F1] space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <div>
-                              <div className="text-[10px] text-[#687086]">Student Member Price</div>
-                              <div className="font-extrabold text-[#171A2B]">
-                                {evt.member_price_paise === 0 ? (
-                                  <span className="text-[#16856B]">Free (Member)</span>
-                                ) : (
-                                  <span>{formatINR(evt.member_price_paise)}</span>
-                                )}
+                        <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-[#625BF6]">
+                                {evt.tags?.[0] || 'Campus Event'}
+                              </span>
+                              {!evt.is_published && (
+                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                                  Preview
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-sm font-extrabold text-[#171A2B] line-clamp-1">
+                              {evt.title}
+                            </h3>
+                            <div className="space-y-1 text-xs text-[#687086] pt-1">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-[#625BF6]" />
+                                <span>{evt.event_date}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-[#A6ACBE]" />
+                                <span className="truncate">{evt.venue}</span>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBookingEvent(evt)}
-                              disabled={booked >= capacity}
-                              className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] disabled:opacity-40 text-[#625BF6] rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              {booked >= capacity ? 'Sold Out' : 'Reserve Pass'}
-                            </button>
+                          </div>
+
+                          <div className="pt-3 border-t border-[#E7E9F1] space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <div>
+                                <div className="text-[10px] text-[#687086]">Student Member Price</div>
+                                <div className="font-extrabold text-[#171A2B]">
+                                  {evt.member_price_paise === 0 ? (
+                                    <span className="text-[#16856B]">Free (Member)</span>
+                                  ) : (
+                                    <span>{formatINR(evt.member_price_paise)}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {isEnrolled ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveModalTicket(userTicket)}
+                                  className="px-3 py-1.5 bg-[#E7F5F0] hover:bg-[#D1EFE6] text-[#16856B] border border-[#BDE5D8] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                  title="You are already enrolled in this event. Click to view your pass."
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Enrolled • View Pass</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedBookingEvent(evt)}
+                                  disabled={isConcluded || isFull}
+                                  className="px-3 py-1.5 bg-[#EEEDFE] hover:bg-[#D4D1FD] disabled:opacity-40 text-[#625BF6] rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                                >
+                                  {isConcluded ? 'Concluded' : isFull ? 'Sold Out' : 'Reserve Pass'}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -1056,57 +1125,14 @@ export const StudentDashboard = () => {
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* 7. Modal for Full QR Pass Inspection                 */}
+      {/* 7. Modal for Full QR Pass Inspection with Profile    */}
       {/* ---------------------------------------------------- */}
-      {activeModalTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#17182B]/70 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E7E9F1] animate-in zoom-in-95 duration-150 space-y-5 text-center relative">
-            <button
-              onClick={() => setActiveModalTicket(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-xl text-[#687086] hover:bg-[#F3F4F8] hover:text-[#171A2B] transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#625BF6]">
-                Official Digital Event Pass
-              </span>
-              <h3 className="text-lg font-black text-[#171A2B] mt-1">
-                {activeModalTicket.event_title}
-              </h3>
-              <p className="text-xs text-[#687086] mt-0.5">
-                {activeModalTicket.event_date} • {activeModalTicket.venue}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white rounded-2xl border border-[#E7E9F1] shadow-inner inline-block mx-auto">
-              <QRCodeSVG
-                value={activeModalTicket.qr_token || activeModalTicket.id}
-                size={180}
-                level="H"
-                includeMargin={false}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-[11px] font-mono font-bold text-[#687086] uppercase">
-                {activeModalTicket.qr_token}
-              </div>
-              <p className="text-[11px] text-[#8B93A7]">
-                Present this QR code at the check-in desk for entry.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setActiveModalTicket(null)}
-              className="w-full py-2.5 bg-[#625BF6] text-white rounded-xl text-xs font-bold hover:bg-[#5048E5] transition-colors shadow-xs"
-            >
-              Close Pass
-            </button>
-          </div>
-        </div>
-      )}
+      <PassQRModal
+        ticket={activeModalTicket}
+        user={user}
+        isOpen={Boolean(activeModalTicket)}
+        onClose={() => setActiveModalTicket(null)}
+      />
 
       {/* Event Booking Modal directly on the same page */}
       <EventBookingModal

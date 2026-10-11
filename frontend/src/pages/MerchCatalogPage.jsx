@@ -547,7 +547,7 @@ export const MerchCatalogPage = () => {
     return (
       <DashboardLayout
         pageTitle="Merch Catalog"
-        breadcrumbs={[{ label: 'Home', link: '/' }, { label: 'Merch Catalog' }]}
+        breadcrumbs={[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Merch Catalog' }]}
       >
         {pageBody}
       </DashboardLayout>

@@ -27,13 +27,7 @@ def list_events(
     published_only: Optional[bool] = None,
     current_user: Optional[dict] = Depends(get_optional_current_user)
 ):
-    # Only organizer role in organizer workspace can view unpublished drafts
-    is_organizer = current_user and current_user.get("role") == "organizer"
-    
-    # Students, Admins, Treasurers, and Guests ONLY EVER receive published events
-    if not is_organizer or published_only is True:
-        return EventService.list_events(is_published_only=True)
-    
+    # Return all organizer-created events so students and all users see every event
     return EventService.list_events(is_published_only=published_only)
 
 @router.get("/{event_id}/analytics")

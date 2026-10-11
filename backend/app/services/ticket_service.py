@@ -1,9 +1,13 @@
 import uuid
+import re
+import json
+import threading
 from datetime import datetime
 from typing import List
 from fastapi import HTTPException, status
 from app.database.mongodb import get_database
 from app.schemas.ticket import TicketBookRequest, TicketResponse, TicketCheckInResponse
+from app.services.email_service import EmailService
 
 class TicketService:
     @staticmethod
@@ -23,6 +27,18 @@ class TicketService:
         is_member = current_user.get("membership_status") == "active"
         unit_price = event["member_price_paise"] if is_member else event["non_member_price_paise"]
         total_amount = unit_price * data.quantity
+
+        # Prevent already enrolled attendees from re-registering for the same event
+        existing_ticket = db["tickets"].find_one({
+            "event_id": data.event_id,
+            "user_id": current_user["id"],
+            "status": {"$ne": "cancelled"}
+        })
+        if existing_ticket:
+            raise HTTPException(
+                status_code=400,
+                detail="You are already enrolled in this event. Re-registration is not permitted."
+            )
 
         # Prevent approved volunteers for this event from registering as participants
         vol_req = db["volunteer_requests"].find_one({
@@ -87,6 +103,10 @@ class TicketService:
             "user_id": current_user["id"],
             "user_name": current_user["full_name"],
             "user_email": current_user["email"],
+            "user_roll_number": current_user.get("roll_number", ""),
+            "user_department": current_user.get("department", ""),
+            "user_phone": current_user.get("phone", ""),
+            "membership_status": current_user.get("membership_status", "non_member"),
             "quantity": data.quantity,
             "total_amount_paise": total_amount,
             "is_member_discount_applied": is_member,
@@ -100,6 +120,16 @@ class TicketService:
             "created_at": now_iso
         }
         db["tickets"].insert_one(ticket_doc)
+
+        # Automatically email the QR code pass to user's registered email
+        try:
+            threading.Thread(
+                target=EmailService.send_ticket_qr_email,
+                args=(ticket_doc, current_user, event),
+                daemon=True
+            ).start()
+        except Exception as err:
+            print(f"[TICKET-EMAIL-DISPATCH-ERR] Could not start email thread: {err}")
 
         # Record income transaction in the ledger
         if total_amount > 0:
@@ -135,6 +165,10 @@ class TicketService:
                 user_id=doc["user_id"],
                 user_name=doc["user_name"],
                 user_email=doc["user_email"],
+                user_roll_number=doc.get("user_roll_number") or current_user.get("roll_number", ""),
+                user_department=doc.get("user_department") or current_user.get("department", ""),
+                user_phone=doc.get("user_phone") or current_user.get("phone", ""),
+                membership_status=doc.get("membership_status") or current_user.get("membership_status", "non_member"),
                 quantity=doc["quantity"],
                 total_amount_paise=doc["total_amount_paise"],
                 is_member_discount_applied=doc.get("is_member_discount_applied", False),
@@ -152,7 +186,25 @@ class TicketService:
     @staticmethod
     def check_in(qr_token: str, reviewer: dict) -> TicketCheckInResponse:
         db = get_database()
-        ticket = db["tickets"].find_one({"qr_token": qr_token.strip()})
+        token_str = qr_token.strip()
+
+        # 1. Check if token is in formatted human-readable text (e.g. "Pass Token: CP-TKT-...")
+        token_match = re.search(r"Pass Token:\s*([A-Za-z0-9_-]+)", token_str, re.IGNORECASE)
+        if token_match:
+            token_str = token_match.group(1).strip()
+        elif token_str.startswith("{") and "qr_token" in token_str:
+            try:
+                parsed = json.loads(token_str)
+                token_str = parsed.get("qr_token", token_str).strip()
+            except Exception:
+                pass
+        else:
+            # Fallback regex search for CP-TKT-... inside scanned payload
+            cp_match = re.search(r"(CP-TKT-[A-Za-z0-9_-]+)", token_str, re.IGNORECASE)
+            if cp_match:
+                token_str = cp_match.group(1).strip()
+
+        ticket = db["tickets"].find_one({"qr_token": token_str})
         if not ticket:
             return TicketCheckInResponse(
                 success=False,
@@ -166,6 +218,9 @@ class TicketService:
                 message=f"Duplicate check-in rejected! Ticket was already checked in at {check_in_time}.",
                 ticket_id=ticket["id"],
                 attendee_name=ticket["user_name"],
+                attendee_roll_number=ticket.get("user_roll_number"),
+                attendee_department=ticket.get("user_department"),
+                attendee_email=ticket.get("user_email"),
                 event_title=ticket["event_title"],
                 checked_in_at=check_in_time
             )
@@ -174,7 +229,7 @@ class TicketService:
         
         # Atomic check-in
         updated = db["tickets"].find_one_and_update(
-            {"qr_token": qr_token.strip(), "checked_in": False},
+            {"qr_token": token_str, "checked_in": False},
             {"$set": {"checked_in": True, "checked_in_at": now_iso}}
         )
 
@@ -195,6 +250,9 @@ class TicketService:
             message=f"Verified! Welcome {ticket['user_name']} ({ticket['quantity']} attendee(s)).",
             ticket_id=ticket["id"],
             attendee_name=ticket["user_name"],
+            attendee_roll_number=ticket.get("user_roll_number"),
+            attendee_department=ticket.get("user_department"),
+            attendee_email=ticket.get("user_email"),
             event_title=ticket["event_title"],
             checked_in_at=now_iso
         )

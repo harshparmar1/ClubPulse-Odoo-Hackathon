@@ -18,7 +18,7 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    seed_database(force=True)
+    seed_database(force=False)
 
 def get_auth_token(email: str = "organizer@clubpulse.edu", password: str = "organizer123"):
     resp = client.post("/api/auth/login", json={"email": email, "password": password})

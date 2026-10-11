@@ -120,13 +120,6 @@ class AuthService:
         )
 
         sent = EmailService.send_otp_email(email_clean, otp_code, data.full_name or "Student")
-        if not sent:
-            # We still return success but note in detail, since OTP is also in MongoDB
-            return {
-                "success": True,
-                "message": f"Verification code sent to {data.email}."
-            }
-
         return {
             "success": True,
             "message": f"Verification code sent to {data.email}."
@@ -176,6 +169,7 @@ class AuthService:
 
         user_id = f"usr_{uuid.uuid4().hex[:10]}"
         now_iso = datetime.utcnow().isoformat()
+        future_iso = (datetime.utcnow() + timedelta(days=365)).isoformat()
 
         user_doc = {
             "id": user_id,
@@ -184,15 +178,39 @@ class AuthService:
             "full_name": data.full_name.strip(),
             "roll_number": data.roll_number or "STU-001",
             "phone": data.phone,
-            "role": "student",  # Students any email
-            "membership_status": "non_member",
-            "membership_expiry": None,
+            "department": "Computer Science",
+            "role": "student",
+            "membership_status": "active",
+            "membership_expiry": future_iso,
             "membership_tier": "annual",
             "membership_role": "participant",
+            "is_active": True,
             "created_at": now_iso
         }
 
         db["users"].insert_one(user_doc)
+
+        # Synchronize into members collection so user appears across the platform
+        db["members"].update_one(
+            {"$or": [{"email": email_clean}, {"user_id": user_id}]},
+            {"$set": {
+                "id": f"mem_{uuid.uuid4().hex[:8]}",
+                "user_id": user_id,
+                "full_name": user_doc["full_name"],
+                "email": email_clean,
+                "roll_number": user_doc["roll_number"],
+                "phone": user_doc.get("phone", ""),
+                "department": "Computer Science",
+                "status": "active",
+                "membership_type": "annual",
+                "dues_paid_paise": 50000,
+                "membership_role": "participant",
+                "joined_at": now_iso,
+                "expires_at": future_iso,
+                "created_at": now_iso
+            }},
+            upsert=True
+        )
 
         token = create_access_token({"sub": user_id, "role": "student"})
 
@@ -329,6 +347,7 @@ class AuthService:
 
         user_id = f"usr_{uuid.uuid4().hex[:10]}"
         now_iso = datetime.utcnow().isoformat()
+        future_iso = (datetime.utcnow() + timedelta(days=365)).isoformat()
 
         # Public registrations are strictly student role
         role = "student"
@@ -337,18 +356,42 @@ class AuthService:
             "id": user_id,
             "email": email_clean,
             "hashed_password": hash_password(data.password),
-            "full_name": data.full_name,
+            "full_name": data.full_name.strip(),
             "roll_number": data.roll_number or "STU-001",
             "phone": data.phone,
+            "department": "Computer Science",
             "role": role,
-            "membership_status": "non_member",
-            "membership_expiry": None,
+            "membership_status": "active",
+            "membership_expiry": future_iso,
             "membership_tier": "annual",
             "membership_role": "participant",
+            "is_active": True,
             "created_at": now_iso
         }
 
         db["users"].insert_one(user_doc)
+
+        # Synchronize into members collection
+        db["members"].update_one(
+            {"$or": [{"email": email_clean}, {"user_id": user_id}]},
+            {"$set": {
+                "id": f"mem_{uuid.uuid4().hex[:8]}",
+                "user_id": user_id,
+                "full_name": user_doc["full_name"],
+                "email": email_clean,
+                "roll_number": user_doc["roll_number"],
+                "phone": user_doc.get("phone", ""),
+                "department": "Computer Science",
+                "status": "active",
+                "membership_type": "annual",
+                "dues_paid_paise": 50000,
+                "membership_role": "participant",
+                "joined_at": now_iso,
+                "expires_at": future_iso,
+                "created_at": now_iso
+            }},
+            upsert=True
+        )
 
         token = create_access_token({"sub": user_id, "role": role})
 

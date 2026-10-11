@@ -12,13 +12,15 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  X
+  X,
+  Ticket
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Badge } from '../components/Badge';
 import { EventBookingModal } from '../components/EventBookingModal';
 import { EmptyState } from '../components/EmptyState';
+import { PassQRModal } from '../components/PassQRModal';
 
 export const EventsPage = () => {
   const { user, isMember, role, loading: authLoading, refreshUser } = useAuth();
@@ -35,13 +37,13 @@ export const EventsPage = () => {
   const [volunteerMsg, setVolunteerMsg] = useState('');
   const [volunteerError, setVolunteerError] = useState('');
 
-  if (!authLoading && ['organizer', 'admin', 'treasurer'].includes(role)) {
-    return <Navigate to="/organizer/events" replace />;
-  }
+  // Student tickets state to check enrollment
+  const [myTickets, setMyTickets] = useState([]);
+  const [activePassTicket, setActivePassTicket] = useState(null);
 
   const fetchEvents = async () => {
     try {
-      const data = await api.get('/api/events?published_only=true');
+      const data = await api.get('/api/events');
       setEvents(data || []);
     } catch (err) {
       console.error('Failed to load events:', err);
@@ -60,9 +62,20 @@ export const EventsPage = () => {
     }
   };
 
+  const fetchMyTickets = async () => {
+    if (!user) return;
+    try {
+      const data = await api.get('/api/tickets/my-tickets');
+      setMyTickets(data || []);
+    } catch (err) {
+      console.error('Failed to load my tickets:', err);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
     fetchMyVolunteerRequests();
+    fetchMyTickets();
   }, [user]);
 
   const handleOptToVolunteer = async (evt) => {
@@ -87,18 +100,17 @@ export const EventsPage = () => {
   const tagsList = ['All', 'Hackathon', 'Workshop', 'AI', 'Coding', 'Gala', 'Prizes'];
 
   const filteredEvents = events.filter((e) => {
-    if (e.is_published === false) return false;
-    // If student has not bought membership, hide free membership events
-    if (!isMember && !isStaff && e.member_price_paise === 0) {
-      return false;
-    }
     const matchesSearch =
-      e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.description.toLowerCase().includes(search.toLowerCase()) ||
-      e.venue.toLowerCase().includes(search.toLowerCase());
+      (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (e.description || '').toLowerCase().includes(search.toLowerCase()) ||
+      (e.venue || '').toLowerCase().includes(search.toLowerCase());
     const matchesTag = selectedTag === 'All' || (e.tags && e.tags.includes(selectedTag));
     return matchesSearch && matchesTag;
   });
+
+  if (!authLoading && ['organizer', 'admin', 'treasurer'].includes(role)) {
+    return <Navigate to="/organizer/events" replace />;
+  }
 
   const pageContent = (
     <div className="space-y-8 w-full">
@@ -227,6 +239,9 @@ export const EventsPage = () => {
               const fillPercentage = Math.min(100, Math.round((booked / capacity) * 100));
               const isFull = booked >= capacity;
 
+              const userTicket = myTickets.find((t) => t.event_id === evt.id && t.status !== 'cancelled');
+              const isEnrolled = !!userTicket;
+
               const volReq = myVolunteerRequests.find((r) => r.event_id === evt.id);
               const isVolunteerApproved = volReq?.status === 'approved';
               const isVolunteerPending = volReq?.status === 'pending';
@@ -244,7 +259,12 @@ export const EventsPage = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-3 right-3 flex gap-1.5">
-                      {isVolunteerApproved ? (
+                      {isEnrolled ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#16856B] text-white shadow-xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Enrolled
+                        </span>
+                      ) : isVolunteerApproved ? (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
                           🤝 Approved Volunteer
                         </span>
@@ -252,8 +272,14 @@ export const EventsPage = () => {
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs">
                           ⏳ Pending Approval
                         </span>
+                      ) : evt.is_ended || evt.status === 'ended' ? (
+                        <Badge variant="neutral">Concluded</Badge>
                       ) : isFull ? (
                         <Badge variant="critical">Sold Out</Badge>
+                      ) : !evt.is_published ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-600 text-white shadow-xs">
+                          🚀 Coming Soon
+                        </span>
                       ) : (
                         <Badge variant="active">{capacity - booked} Seats Left</Badge>
                       )}
@@ -324,7 +350,23 @@ export const EventsPage = () => {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          {isVolunteerApproved ? (
+                          {isEnrolled ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Enrolled
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setActivePassTicket(userTicket)}
+                                className="px-3 py-1.5 rounded-xl bg-[#625BF6] hover:bg-[#5048E5] text-white text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                title="View your confirmed QR Pass with profile data"
+                              >
+                                <Ticket className="w-3.5 h-3.5" />
+                                <span>View Pass</span>
+                              </button>
+                            </div>
+                          ) : isVolunteerApproved ? (
                             <div className="flex items-center gap-2">
                               <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -370,10 +412,10 @@ export const EventsPage = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedEvent(evt)}
-                                disabled={isFull}
+                                disabled={isFull || evt.is_ended || evt.status === 'ended'}
                                 className="px-3.5 py-2 bg-[#625BF6] hover:bg-[#5048E5] disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                               >
-                                {isFull ? 'Sold Out' : 'Register Pass'}
+                                {evt.is_ended || evt.status === 'ended' ? 'Concluded' : isFull ? 'Sold Out' : 'Register Pass'}
                               </button>
                             </>
                           )}
@@ -396,9 +438,18 @@ export const EventsPage = () => {
           onClose={() => setSelectedEvent(null)}
           onBookSuccess={() => {
             fetchEvents();
+            fetchMyTickets();
           }}
         />
       )}
+
+      {/* QR Pass & Enrolled Profile Credentials Modal */}
+      <PassQRModal
+        ticket={activePassTicket}
+        user={user}
+        isOpen={Boolean(activePassTicket)}
+        onClose={() => setActivePassTicket(null)}
+      />
     </div>
   );
 

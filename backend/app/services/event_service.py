@@ -48,13 +48,6 @@ class EventService:
         doc = db["events"].find_one({"id": event_id})
         if not doc:
             raise HTTPException(status_code=404, detail="Event not found.")
-        
-        # Protect unpublished events from students, admins, treasurers, and guests
-        is_published = doc.get("is_published", True)
-        if not is_published:
-            is_organizer = current_user and current_user.get("role") == "organizer"
-            if not is_organizer:
-                raise HTTPException(status_code=404, detail="Event not found or unpublished.")
 
         return EventResponse(
             id=doc["id"],

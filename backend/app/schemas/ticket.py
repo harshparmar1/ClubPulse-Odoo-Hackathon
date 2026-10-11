@@ -27,6 +27,10 @@ class TicketResponse(BaseModel):
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     razorpay_signature: Optional[str] = None
+    user_roll_number: Optional[str] = None
+    user_department: Optional[str] = None
+    user_phone: Optional[str] = None
+    membership_status: Optional[str] = None
     checked_in: bool
     checked_in_at: Optional[str] = None
     created_at: str
@@ -39,5 +43,8 @@ class TicketCheckInResponse(BaseModel):
     message: str
     ticket_id: Optional[str] = None
     attendee_name: Optional[str] = None
+    attendee_roll_number: Optional[str] = None
+    attendee_department: Optional[str] = None
+    attendee_email: Optional[str] = None
     event_title: Optional[str] = None
     checked_in_at: Optional[str] = None

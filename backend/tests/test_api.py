@@ -11,7 +11,7 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    seed_database(force=True)
+    seed_database(force=False)
 
 def test_health_check():
     response = client.get("/api/health")
@@ -100,6 +100,14 @@ def test_events_and_ticket_booking():
     assert dup_checkin.status_code == 200
     assert dup_checkin.json()["success"] is False
     assert "Duplicate check-in rejected" in dup_checkin.json()["message"]
+
+    # Re-registration for the same event should be rejected
+    dup_book_resp = client.post("/api/tickets/book", json={
+        "event_id": event_id,
+        "quantity": 1
+    }, headers=headers)
+    assert dup_book_resp.status_code == 400
+    assert "already enrolled" in dup_book_resp.json()["detail"].lower()
 
 def test_operational_risk_engine():
     # Login as admin

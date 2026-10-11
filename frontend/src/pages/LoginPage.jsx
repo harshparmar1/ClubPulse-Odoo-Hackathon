@@ -4,13 +4,24 @@ import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 
 export const LoginPage = () => {
-  const { login } = useAuth();
+  const { user, role, login } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // If already logged in, redirect straight to dashboard
+  React.useEffect(() => {
+    if (user) {
+      if (['organizer', 'admin'].includes(role)) {
+        navigate('/organizer/overview', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, role, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,8 +30,12 @@ export const LoginPage = () => {
     setError('');
 
     try {
-      await login(email.trim().toLowerCase(), password);
-      navigate('/dashboard');
+      const loggedInUser = await login(email.trim().toLowerCase(), password);
+      if (['organizer', 'admin'].includes(loggedInUser?.role)) {
+        navigate('/organizer/overview', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
@@ -45,7 +60,7 @@ export const LoginPage = () => {
         <p className="mt-1 text-xs text-[#687086]">
           Don't have an account yet?{' '}
           <Link to="/register" className="font-semibold text-[#625BF6] hover:text-[#5048E5]">
-            Register with Email OTP
+            Register here
           </Link>
         </p>
       </div>

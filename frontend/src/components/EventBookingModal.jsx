@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,20 @@ export const EventBookingModal = ({ event, isOpen, onClose, onBookSuccess }) => 
   const [selectedRole, setSelectedRole] = useState('participant'); // 'participant' or 'volunteer'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [existingTicket, setExistingTicket] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && event && user) {
+      api.get('/api/tickets/my-tickets')
+        .then((tickets) => {
+          const match = (tickets || []).find((t) => t.event_id === event.id && t.status !== 'cancelled');
+          setExistingTicket(match || null);
+        })
+        .catch(() => {});
+    } else {
+      setExistingTicket(null);
+    }
+  }, [isOpen, event?.id, user]);
 
   if (!isOpen || !event) return null;
 
@@ -52,6 +66,10 @@ export const EventBookingModal = ({ event, isOpen, onClose, onBookSuccess }) => 
   const handleBook = async () => {
     if (!user) {
       navigate('/login');
+      return;
+    }
+    if (existingTicket) {
+      setError('You are already enrolled in this event. Re-registration is not permitted.');
       return;
     }
     if (isApprovedVolunteer) {
@@ -219,6 +237,29 @@ export const EventBookingModal = ({ event, isOpen, onClose, onBookSuccess }) => 
         </div>
 
         <div className="p-6 space-y-5">
+          {existingTicket && (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold text-emerald-950">Already Enrolled in this Event</div>
+                  <div className="text-[11px] text-emerald-700">You already possess a verified entry pass. Re-registration is not allowed.</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate('/my-tickets');
+                }}
+                className="px-3.5 py-1.5 bg-[#16856B] text-white rounded-lg text-xs font-bold hover:bg-[#13715B] transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+              >
+                <Ticket className="w-3.5 h-3.5" />
+                <span>View Pass</span>
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-xs text-rose-700">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -393,31 +434,45 @@ export const EventBookingModal = ({ event, isOpen, onClose, onBookSuccess }) => 
               <span className="text-xs text-slate-500">Total payable</span>
               <div className="text-xl font-extrabold text-slate-900">{formatINR(totalPricePaise)}</div>
             </div>
-            <button
-              onClick={handleBook}
-              disabled={loading || remainingCapacity === 0 || isApprovedVolunteer}
-              className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2"
-            >
-              {loading ? (
-                <span>{totalPricePaise > 0 ? 'Connecting to Razorpay...' : 'Generating Ticket...'}</span>
-              ) : isApprovedVolunteer ? (
-                <span>Volunteering (Pass Closed)</span>
-              ) : totalPricePaise > 0 ? (
-                <>
-                  <CreditCard className="w-4 h-4" />
-                  <span>Pay & Register with Razorpay</span>
-                </>
-              ) : (
-                <>
-                  <span>
-                    {isMember
-                      ? `Claim Pass as ${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'}`
-                      : 'Claim Free Pass'}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+            {existingTicket ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate('/my-tickets');
+                }}
+                className="py-2.5 px-5 bg-[#16856B] hover:bg-[#13715B] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Enrolled • View Pass</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleBook}
+                disabled={loading || remainingCapacity === 0 || isApprovedVolunteer}
+                className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2"
+              >
+                {loading ? (
+                  <span>{totalPricePaise > 0 ? 'Connecting to Razorpay...' : 'Generating Ticket...'}</span>
+                ) : isApprovedVolunteer ? (
+                  <span>Volunteering (Pass Closed)</span>
+                ) : totalPricePaise > 0 ? (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    <span>Pay & Register with Razorpay</span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      {isMember
+                        ? `Claim Pass as ${selectedRole === 'volunteer' ? 'Volunteer' : 'Participant'}`
+                        : 'Claim Free Pass'}
+                    </span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
